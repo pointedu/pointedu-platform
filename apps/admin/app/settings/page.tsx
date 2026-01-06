@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import SettingsForm from './SettingsForm'
+import BackupManager from './BackupManager'
 
 async function getSettings() {
   try {
@@ -26,6 +27,11 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsForm initialSettings={settings} />
+
+      {/* 데이터 백업 관리 */}
+      <div className="mt-8">
+        <BackupManager />
+      </div>
     </div>
   )
 }

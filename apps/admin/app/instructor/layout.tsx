@@ -11,12 +11,14 @@ import {
   FolderIcon,
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: '홈', href: '/instructor', icon: HomeIcon },
   { name: '내 일정', href: '/instructor/schedule', icon: CalendarIcon },
   { name: '수업 지원', href: '/instructor/available', icon: ClipboardDocumentListIcon },
+  { name: '정산내역', href: '/instructor/payments', icon: CurrencyDollarIcon },
   { name: '공지사항', href: '/instructor/notices', icon: MegaphoneIcon },
   { name: '자료실', href: '/instructor/resources', icon: FolderIcon },
 ]

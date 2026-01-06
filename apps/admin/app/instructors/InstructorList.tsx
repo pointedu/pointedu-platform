@@ -34,6 +34,13 @@ interface Instructor {
   bankName?: string | null
   accountNumber?: string | null
   accountHolder?: string | null
+  bankAccount?: string | null
+  residentNumber?: string | null
+  emergencyContact?: string | null
+  experience?: number | null
+  certifications?: string[]
+  notes?: string | null
+  createdAt?: string
   _count: {
     assignments: number
     payments: number
@@ -562,6 +569,114 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                   {selectedInstructor._count.payments}
                 </p>
                 <p className="text-sm text-gray-500">정산 건수</p>
+              </div>
+            </div>
+
+            {/* 연락처 정보 */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">연락처 정보</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedInstructor.email && (
+                  <div>
+                    <span className="text-gray-500">이메일:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.email}</span>
+                  </div>
+                )}
+                {selectedInstructor.emergencyContact && (
+                  <div>
+                    <span className="text-gray-500">비상연락처:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.emergencyContact}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 정산 정보 */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">정산 정보</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedInstructor.residentNumber && (
+                  <div>
+                    <span className="text-gray-500">주민등록번호:</span>
+                    <span className="ml-2 text-gray-900">
+                      {selectedInstructor.residentNumber.slice(0, 8)}******
+                    </span>
+                  </div>
+                )}
+                {selectedInstructor.bankAccount && (
+                  <div>
+                    <span className="text-gray-500">계좌정보:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.bankAccount}</span>
+                  </div>
+                )}
+                {selectedInstructor.bankName && (
+                  <div>
+                    <span className="text-gray-500">은행:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.bankName}</span>
+                  </div>
+                )}
+                {selectedInstructor.accountNumber && (
+                  <div>
+                    <span className="text-gray-500">계좌번호:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.accountNumber}</span>
+                  </div>
+                )}
+                {selectedInstructor.accountHolder && (
+                  <div>
+                    <span className="text-gray-500">예금주:</span>
+                    <span className="ml-2 text-gray-900">{selectedInstructor.accountHolder}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 경력 및 자격 */}
+            {(selectedInstructor.experience || (selectedInstructor.certifications && selectedInstructor.certifications.length > 0)) && (
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">경력 및 자격</h4>
+                <div className="space-y-2 text-sm">
+                  {selectedInstructor.experience && (
+                    <div>
+                      <span className="text-gray-500">경력:</span>
+                      <span className="ml-2 text-gray-900">{selectedInstructor.experience}년</span>
+                    </div>
+                  )}
+                  {selectedInstructor.certifications && selectedInstructor.certifications.length > 0 && (
+                    <div>
+                      <span className="text-gray-500">자격증:</span>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {selectedInstructor.certifications.map((cert, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded-full bg-purple-50 px-3 py-1 text-sm text-purple-700"
+                          >
+                            {cert}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 메모 및 가입일 */}
+            <div className="border-t pt-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedInstructor.notes && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500">신청 메시지:</span>
+                    <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{selectedInstructor.notes}</p>
+                  </div>
+                )}
+                {selectedInstructor.createdAt && (
+                  <div>
+                    <span className="text-gray-500">가입 신청일:</span>
+                    <span className="ml-2 text-gray-900">
+                      {new Date(selectedInstructor.createdAt).toLocaleDateString('ko-KR')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

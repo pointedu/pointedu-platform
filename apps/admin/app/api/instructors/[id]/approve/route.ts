@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../../lib/auth'
 import { prisma } from '@pointedu/database'
+import { sendInstructorApprovalNotification } from '../../../../../lib/notification'
 
 export async function POST(
   request: NextRequest,
@@ -30,7 +31,26 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({ success: true, instructor })
+    // 강사 승인 완료 알림 발송 (카카오 알림톡)
+    let notificationResult = null
+    if (instructor.phoneNumber) {
+      notificationResult = await sendInstructorApprovalNotification({
+        phoneNumber: instructor.phoneNumber,
+        instructorName: instructor.name,
+      })
+
+      if (notificationResult.success) {
+        console.log('Instructor approval notification sent successfully')
+      } else {
+        console.warn('Failed to send instructor approval notification:', notificationResult.error)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      instructor,
+      notification: notificationResult,
+    })
   } catch (error) {
     console.error('Failed to approve instructor:', error)
     return NextResponse.json(

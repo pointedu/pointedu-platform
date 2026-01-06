@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import ScheduleCalendar from './ScheduleCalendar'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getScheduleData() {
   try {
@@ -34,7 +35,12 @@ async function getScheduleData() {
       }),
     ])
 
-    return { assignments, schools, instructors }
+    // Serialize Decimal values for client component
+    return {
+      assignments: serializeDecimalArray(assignments),
+      schools: serializeDecimalArray(schools),
+      instructors: serializeDecimalArray(instructors),
+    }
   } catch (error) {
     console.error('Failed to fetch schedule data:', error)
     return { assignments: [], schools: [], instructors: [] }

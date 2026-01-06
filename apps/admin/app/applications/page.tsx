@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import ApplicationList from './ApplicationList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getApplications() {
   try {
@@ -30,7 +31,8 @@ async function getApplications() {
       },
       orderBy: { createdAt: 'desc' }
     })
-    return data
+    // Serialize Decimal values for client component
+    return serializeDecimalArray(data)
   } catch (error) {
     console.error('Failed to fetch applications:', error)
     return []

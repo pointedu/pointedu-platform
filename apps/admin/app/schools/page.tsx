@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import SchoolList from './SchoolList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getSchools() {
   try {
-    return await prisma.school.findMany({
+    const schools = await prisma.school.findMany({
       include: {
         contacts: true,
         _count: {
@@ -14,6 +15,8 @@ async function getSchools() {
       },
       orderBy: { name: 'asc' },
     })
+    // Serialize Decimal values for client component
+    return serializeDecimalArray(schools)
   } catch (error) {
     console.error('Failed to fetch schools:', error)
     return []

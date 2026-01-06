@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CurrencyDollarIcon,
   CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
+  PrinterIcon,
+  ChatBubbleLeftRightIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 import FormModal from '../../components/FormModal'
+import Modal from '../../components/Modal'
+import PaymentStatement from './PaymentStatement'
 
 interface Payment {
   id: string
@@ -17,20 +22,29 @@ interface Payment {
   sessions: number
   sessionFee: number
   transportFee: number
+  bonus?: number
   subtotal: number
   taxWithholding: number
+  deductions?: number
   netAmount: number
   status: string
   paidAt?: string | null
   instructor: {
     id: string
     name: string
+    phoneNumber?: string | null
     bankName?: string | null
     accountNumber?: string | null
+    bankAccount?: string | null
+    residentNumber?: string | null
   }
   assignment: {
+    scheduledDate?: string | null
     request: {
       school: { name: string }
+      program?: { name: string } | null
+      customProgram?: string | null
+      sessions: number
     }
   }
 }
@@ -85,6 +99,96 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  // 정산서 모달
+  const [isStatementOpen, setIsStatementOpen] = useState(false)
+  const [statementPayment, setStatementPayment] = useState<Payment | null>(null)
+  const statementRef = useRef<HTMLDivElement>(null)
+
+  // 정산서 열기
+  const openStatement = (payment: Payment) => {
+    setStatementPayment(payment)
+    setIsStatementOpen(true)
+  }
+
+  // 정산서 인쇄
+  const handlePrintStatement = () => {
+    const printContent = statementRef.current
+    if (!printContent) return
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>정산서 - ${statementPayment?.paymentNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; }
+            table { border-collapse: collapse; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+          <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+        </head>
+        <body>
+          ${printContent.innerHTML}
+          <script>
+            setTimeout(() => { window.print(); window.close(); }, 500);
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  // 카카오톡 알림 발송 (이미지 생성 후 발송 안내)
+  const handleSendKakao = async () => {
+    if (!statementPayment) return
+
+    // 실제 카카오톡 API 연동 전까지는 안내 메시지
+    const confirmed = window.confirm(
+      `${statementPayment.instructor.name} 강사님에게 정산서를 카카오톡으로 발송하시겠습니까?\n\n` +
+      `연락처: ${statementPayment.instructor.phoneNumber || '미등록'}\n` +
+      `금액: ${Number(statementPayment.netAmount).toLocaleString()}원`
+    )
+
+    if (confirmed) {
+      try {
+        // 알림톡 발송 API 호출
+        const res = await fetch('/api/notifications/kakao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'PAYMENT_STATEMENT',
+            paymentId: statementPayment.id,
+            instructorId: statementPayment.instructor.id,
+            phoneNumber: statementPayment.instructor.phoneNumber,
+          }),
+        })
+
+        if (res.ok) {
+          alert('카카오톡 알림이 발송되었습니다.')
+        } else {
+          // 알림톡 API가 없는 경우 안내
+          alert(
+            '카카오톡 알림톡 발송 기능이 준비중입니다.\n\n' +
+            '현재는 정산서를 인쇄하여 직접 전달하거나,\n' +
+            '정산서 이미지를 캡처하여 카카오톡으로 전송해주세요.'
+          )
+        }
+      } catch (error) {
+        alert(
+          '카카오톡 알림톡 발송 기능이 준비중입니다.\n\n' +
+          '현재는 정산서를 인쇄하여 직접 전달하거나,\n' +
+          '정산서 이미지를 캡처하여 카카오톡으로 전송해주세요.'
+        )
+      }
+    }
+  }
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     setLoading(id)
@@ -294,6 +398,13 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
                     >
                       상세
                     </button>
+                    <button
+                      onClick={() => openStatement(payment)}
+                      className="text-purple-600 hover:text-purple-900 mr-2"
+                      title="정산서 보기"
+                    >
+                      <DocumentTextIcon className="h-4 w-4 inline" />
+                    </button>
                     {nextStatus[payment.status] && (
                       <button
                         onClick={() => handleStatusChange(payment.id, nextStatus[payment.status])}
@@ -413,6 +524,56 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
           </div>
         )}
       </FormModal>
+
+      {/* 정산서 모달 */}
+      <Modal
+        isOpen={isStatementOpen}
+        onClose={() => setIsStatementOpen(false)}
+        title="강사비 정산서"
+        size="xl"
+      >
+        {statementPayment && (
+          <div>
+            {/* 버튼 영역 */}
+            <div className="flex justify-end gap-3 mb-4 border-b pb-4">
+              <button
+                onClick={handlePrintStatement}
+                className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              >
+                <PrinterIcon className="h-4 w-4" />
+                인쇄
+              </button>
+              <button
+                onClick={handleSendKakao}
+                className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-500"
+              >
+                <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                카카오톡 발송
+              </button>
+            </div>
+
+            {/* 정산서 내용 */}
+            <div className="overflow-auto max-h-[70vh]">
+              <PaymentStatement
+                ref={statementRef}
+                payment={{
+                  ...statementPayment,
+                  instructor: {
+                    ...statementPayment.instructor,
+                    phoneNumber: statementPayment.instructor.phoneNumber || undefined,
+                    bankAccount: statementPayment.instructor.bankAccount || undefined,
+                    residentNumber: statementPayment.instructor.residentNumber || undefined,
+                  },
+                  assignment: {
+                    scheduledDate: statementPayment.assignment.scheduledDate || undefined,
+                    request: statementPayment.assignment.request,
+                  },
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }

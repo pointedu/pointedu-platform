@@ -102,12 +102,19 @@ export async function calculatePaymentForAssignment(
     calculateSessionFee(sessions)
   )
 
-  // 2. 교통비 계산
-  const transportFee = new Decimal(
-    school.transportFee !== null && school.transportFee !== undefined
-      ? Number(school.transportFee)
-      : calculateTransportFee(school.distanceKm || 0)
-  )
+  // 2. 교통비 계산 (우선순위: 배정 교통비 > 학교 교통비 > 거리 기반 계산)
+  let transportFeeValue: number
+  if (assignment.transportFee !== null && assignment.transportFee !== undefined) {
+    // 배정 시 입력한 교통비 (강사 주소지 ~ 학교 거리 기반)
+    transportFeeValue = Number(assignment.transportFee)
+  } else if (school.transportFee !== null && school.transportFee !== undefined) {
+    // 학교에 설정된 기본 교통비
+    transportFeeValue = Number(school.transportFee)
+  } else {
+    // 학교의 거리 정보로 계산 (폴백)
+    transportFeeValue = calculateTransportFee(school.distanceKm || 0)
+  }
+  const transportFee = new Decimal(transportFeeValue)
 
   // 3. 보너스 및 공제
   const bonus = new Decimal(options.bonus || 0)

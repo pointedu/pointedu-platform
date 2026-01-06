@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../lib/auth'
 import { prisma } from '@pointedu/database'
 import AvailableClassList from './AvailableClassList'
+import { serializeDecimalArray } from '../../../lib/utils'
 
 async function getAvailableClasses(userId: string) {
   try {
@@ -49,7 +50,9 @@ async function getAvailableClasses(userId: string) {
       },
     })
 
-    return { instructor, classes }
+    // Serialize Decimal values for client component
+    const serializedClasses = serializeDecimalArray(classes)
+    return { instructor, classes: serializedClasses }
   } catch (error) {
     console.error('Failed to fetch available classes:', error)
     return { instructor: null, classes: [] }

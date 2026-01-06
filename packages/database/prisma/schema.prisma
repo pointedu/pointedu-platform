@@ -72,6 +72,7 @@ model Instructor {
   email         String?
   emergencyContact String?
   bankAccount   String?           // 계좌번호
+  residentNumber String?          // 주민등록번호 (원천징수용, 암호화 저장 권장)
 
   // 전문성 정보
   subjects      String[]          // 전문 과목 배열
@@ -467,6 +468,10 @@ model InstructorAssignment {
   // 상태
   status        AssignmentStatus  @default(PENDING)
 
+  // 거리 및 교통비 (강사 주소지 ~ 학교 거리 기반 계산)
+  distanceKm    Int?              // 강사-학교 거리 (km)
+  transportFee  Decimal?          @db.Decimal(10, 2) // 계산된 교통비
+
   // 강사 응답
   respondedAt   DateTime?
   response      String?           @db.Text
@@ -480,6 +485,10 @@ model InstructorAssignment {
   attendanceCount Int?
   actualSessions  Int?
 
+  // 알림 상태
+  notificationSent Boolean         @default(false)  // 배정 알림 발송 여부
+  reminderSent     Boolean         @default(false)  // 5일전 리마인더 발송 여부
+
   notes         String?           @db.Text
 
   createdAt     DateTime          @default(now())
@@ -492,6 +501,7 @@ model InstructorAssignment {
   @@index([requestId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([scheduledDate, reminderSent])
   @@map("instructor_assignments")
 }
 
@@ -740,6 +750,12 @@ model Notice {
 
   // 조회수
   viewCount     Int       @default(0)
+
+  // 첨부파일
+  fileName      String?   // 원본 파일명
+  fileType      String?   // 파일 MIME 타입
+  fileSize      Int?      // 파일 크기 (bytes)
+  filePath      String?   // Supabase Storage URL
 
   // 작성자
   authorId      String

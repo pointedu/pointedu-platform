@@ -17,7 +17,7 @@ interface Quote {
   sessionFee: number
   transportFee: number
   materialCost: number
-  margin: number
+  marginRate: number  // DB에서 소수점으로 저장 (0.15 = 15%)
   finalTotal: number
   validUntil: string
   status: string
@@ -41,9 +41,18 @@ interface Request {
   status: string
 }
 
+interface TransportSettings {
+  transport_0_20: string
+  transport_20_40: string
+  transport_40_60: string
+  transport_60_80: string
+  transport_80_plus: string
+}
+
 interface QuoteListProps {
   initialQuotes: Quote[]
   pendingRequests: Request[]
+  transportSettings?: TransportSettings
 }
 
 const statusLabels: Record<string, string> = {
@@ -62,14 +71,34 @@ const statusColors: Record<string, string> = {
   EXPIRED: 'bg-yellow-100 text-yellow-800',
 }
 
-export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListProps) {
+// 기본 교통비 설정값
+const defaultTransportSettings: TransportSettings = {
+  transport_0_20: '0',
+  transport_20_40: '15000',
+  transport_40_60: '25000',
+  transport_60_80: '35000',
+  transport_80_plus: '45000',
+}
+
+// 거리 기반 교통비 계산 함수
+function calculateTransportFee(distanceKm: number, settings: TransportSettings): number {
+  if (distanceKm <= 20) return parseInt(settings.transport_0_20) || 0
+  if (distanceKm <= 40) return parseInt(settings.transport_20_40) || 15000
+  if (distanceKm <= 60) return parseInt(settings.transport_40_60) || 25000
+  if (distanceKm <= 80) return parseInt(settings.transport_60_80) || 35000
+  return parseInt(settings.transport_80_plus) || 45000
+}
+
+export default function QuoteList({ initialQuotes, pendingRequests, transportSettings }: QuoteListProps) {
   const router = useRouter()
   const [quotes, setQuotes] = useState(initialQuotes)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<string>('')
+  const settings = transportSettings || defaultTransportSettings
   const [formData, setFormData] = useState({
+    distanceKm: '',
     sessionFee: '',
     transportFee: '',
     materialCost: '',
@@ -80,6 +109,7 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
 
   const resetForm = () => {
     setFormData({
+      distanceKm: '',
       sessionFee: '',
       transportFee: '',
       materialCost: '',
@@ -91,6 +121,17 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
     setEditingQuote(null)
   }
 
+  // 거리 입력 시 교통비 자동 계산
+  const handleDistanceChange = (value: string) => {
+    const distance = parseInt(value) || 0
+    const transportFee = calculateTransportFee(distance, settings)
+    setFormData(prev => ({
+      ...prev,
+      distanceKm: value,
+      transportFee: transportFee.toString(),
+    }))
+  }
+
   const openCreateModal = () => {
     resetForm()
     setIsModalOpen(true)
@@ -99,11 +140,14 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
   const openEditModal = (quote: Quote) => {
     setEditingQuote(quote)
     setSelectedRequest(quote.request.id)
+    // marginRate를 백분율로 변환 (0.15 -> 15)
+    const marginPercent = (quote.marginRate * 100).toString()
     setFormData({
+      distanceKm: '',
       sessionFee: quote.sessionFee.toString(),
       transportFee: quote.transportFee.toString(),
       materialCost: quote.materialCost.toString(),
-      margin: quote.margin.toString(),
+      margin: marginPercent,
       validDays: '30',
       notes: '',
     })
@@ -129,10 +173,13 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
       const url = editingQuote
         ? `/api/quotes/${editingQuote.id}`
         : '/api/quotes'
-      const method = editingQuote ? 'PUT' : 'POST'
+      const method = editingQuote ? 'PATCH' : 'POST'
 
       const validUntil = new Date()
       validUntil.setDate(validUntil.getDate() + parseInt(formData.validDays))
+
+      // marginRate는 API에서 소수점으로 기대 (15% -> 0.15)
+      const marginRate = parseFloat(formData.margin) / 100
 
       const res = await fetch(url, {
         method,
@@ -142,7 +189,7 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
           sessionFee: parseFloat(formData.sessionFee),
           transportFee: parseFloat(formData.transportFee),
           materialCost: parseFloat(formData.materialCost),
-          margin: parseFloat(formData.margin),
+          marginRate: marginRate,
           validUntil: validUntil.toISOString(),
           notes: formData.notes,
         }),
@@ -152,9 +199,14 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
         setIsModalOpen(false)
         resetForm()
         router.refresh()
+      } else {
+        const errorData = await res.json()
+        console.error('Quote save error:', errorData)
+        alert(`저장 실패: ${errorData.error || '알 수 없는 오류'}`)
       }
     } catch (error) {
       console.error('Failed to save quote:', error)
+      alert('견적 저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -323,6 +375,24 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700">강사-학교 거리 (km)</label>
+              <input
+                type="number"
+                placeholder="거리 입력 시 교통비 자동 계산"
+                value={formData.distanceKm}
+                onChange={(e) => handleDistanceChange(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                0-20km: {parseInt(settings.transport_0_20).toLocaleString()}원 |
+                20-40km: {parseInt(settings.transport_20_40).toLocaleString()}원 |
+                40-60km: {parseInt(settings.transport_40_60).toLocaleString()}원
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-medium text-gray-700">교통비 (원)</label>
               <input
                 type="number"
@@ -330,10 +400,8 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
                 onChange={(e) => setFormData({ ...formData, transportFee: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
+              <p className="mt-1 text-xs text-gray-500">거리 입력 시 자동 계산됩니다. 수동으로 조정 가능합니다.</p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">재료비 (원)</label>
               <input
@@ -343,15 +411,16 @@ export default function QuoteList({ initialQuotes, pendingRequests }: QuoteListP
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">마진율 (%)</label>
-              <input
-                type="number"
-                value={formData.margin}
-                onChange={(e) => setFormData({ ...formData, margin: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">마진율 (%)</label>
+            <input
+              type="number"
+              value={formData.margin}
+              onChange={(e) => setFormData({ ...formData, margin: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
           </div>
 
           <div>

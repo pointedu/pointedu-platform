@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import ProgramList from './ProgramList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getPrograms() {
   try {
-    return await prisma.program.findMany({
+    const programs = await prisma.program.findMany({
       include: {
         _count: {
           select: { requests: true },
@@ -13,6 +14,7 @@ async function getPrograms() {
       },
       orderBy: { name: 'asc' },
     })
+    return serializeDecimalArray(programs)
   } catch (error) {
     console.error('Failed to fetch programs:', error)
     return []

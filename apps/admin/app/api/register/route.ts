@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
       experience,
       certifications,
       bankAccount,
+      residentNumber,
+      emergencyContact,
       message,
     } = body
 
@@ -64,6 +66,8 @@ export async function POST(request: NextRequest) {
           experience: experience || null,
           certifications: certifications || [],
           bankAccount: bankAccount || null,
+          residentNumber: residentNumber || null,
+          emergencyContact: emergencyContact || null,
           status: 'PENDING',
           notes: message || null,
         },

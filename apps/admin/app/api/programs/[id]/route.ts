@@ -37,25 +37,47 @@ export async function PUT(
   try {
     const body = await request.json()
 
+    // 프론트엔드 호환: duration → sessionMinutes, basePrice → baseSessionFee
+    const updateData: Record<string, unknown> = {}
+
+    if (body.name !== undefined) updateData.name = body.name
+    if (body.category !== undefined) updateData.category = body.category
+    if (body.description !== undefined) updateData.description = body.description
+    if (body.targetGrades !== undefined) updateData.targetGrades = body.targetGrades
+    if (body.minStudents !== undefined) updateData.minStudents = parseInt(body.minStudents)
+    if (body.maxStudents !== undefined) updateData.maxStudents = parseInt(body.maxStudents)
+    if (body.sessionCount !== undefined) updateData.sessionCount = parseInt(body.sessionCount)
+    if (body.difficulty !== undefined) updateData.difficulty = parseInt(body.difficulty)
+    if (body.active !== undefined) updateData.active = body.active
+
+    // sessionMinutes 또는 duration
+    if (body.sessionMinutes !== undefined) {
+      updateData.sessionMinutes = parseInt(body.sessionMinutes)
+    } else if (body.duration !== undefined) {
+      updateData.sessionMinutes = parseInt(body.duration)
+    }
+
+    // baseSessionFee 또는 basePrice
+    if (body.baseSessionFee !== undefined) {
+      updateData.baseSessionFee = body.baseSessionFee ? parseFloat(body.baseSessionFee) : null
+    } else if (body.basePrice !== undefined) {
+      updateData.baseSessionFee = body.basePrice ? parseFloat(body.basePrice) : null
+    }
+
+    if (body.baseMaterialCost !== undefined) {
+      updateData.baseMaterialCost = body.baseMaterialCost ? parseFloat(body.baseMaterialCost) : null
+    }
+
     const program = await prisma.program.update({
       where: { id: params.id },
-      data: {
-        name: body.name,
-        category: body.category,
-        description: body.description,
-        targetGrades: body.targetGrades,
-        minStudents: body.minStudents,
-        maxStudents: body.maxStudents,
-        sessionCount: body.sessionCount,
-        sessionMinutes: body.sessionMinutes,
-        baseMaterialCost: body.baseMaterialCost ? parseFloat(body.baseMaterialCost) : null,
-        baseSessionFee: body.baseSessionFee ? parseFloat(body.baseSessionFee) : null,
-        difficulty: body.difficulty,
-        active: body.active,
-      },
+      data: updateData,
     })
 
-    return NextResponse.json(program)
+    return NextResponse.json({
+      ...program,
+      duration: program.sessionMinutes,
+      basePrice: program.baseSessionFee,
+    })
   } catch (error) {
     console.error('Failed to update program:', error)
     return NextResponse.json({ error: 'Failed to update program' }, { status: 500 })

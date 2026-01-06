@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import {
   BuildingOffice2Icon,
   CurrencyDollarIcon,
   BellIcon,
   ShieldCheckIcon,
   DocumentTextIcon,
+  PhotoIcon,
+  ArrowUpTrayIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 
 interface Setting {
@@ -74,6 +78,7 @@ const defaultSettings: SettingsCategory[] = [
     settings: [
       { key: 'email_enabled', label: '이메일 알림 활성화', value: 'true', type: 'toggle' },
       { key: 'sms_enabled', label: 'SMS 알림 활성화', value: 'false', type: 'toggle' },
+      { key: 'kakao_enabled', label: '카카오 알림톡 활성화', value: 'true', type: 'toggle' },
       { key: 'notify_new_request', label: '새 요청 알림', value: 'true', type: 'toggle' },
       { key: 'notify_assignment', label: '배정 알림', value: 'true', type: 'toggle' },
       { key: 'notify_payment', label: '정산 알림', value: 'true', type: 'toggle' },
@@ -102,6 +107,12 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // 로고 관련 상태
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoLoading, setLogoLoading] = useState(false)
+  const [logoMessage, setLogoMessage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     // Merge initial settings with defaults
     const merged: Record<string, string> = {}
@@ -119,7 +130,22 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     })
 
     setSettings(merged)
+
+    // 로고 정보 로드
+    loadLogo()
   }, [initialSettings])
+
+  const loadLogo = async () => {
+    try {
+      const res = await fetch('/api/settings/logo')
+      const data = await res.json()
+      if (data.exists && data.url) {
+        setLogoUrl(data.url)
+      }
+    } catch (error) {
+      console.error('Failed to load logo:', error)
+    }
+  }
 
   const handleChange = (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -163,9 +189,164 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     setSaved(false)
   }
 
+  // 로고 업로드 핸들러
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setLogoLoading(true)
+    setLogoMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('logo', file)
+
+      const res = await fetch('/api/settings/logo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setLogoUrl(data.url)
+        setLogoMessage('로고가 성공적으로 업로드되었습니다.')
+        // 페이지 새로고침하여 사이드바 로고 업데이트
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        setLogoMessage(data.error || '업로드 실패')
+      }
+    } catch (error) {
+      console.error('Failed to upload logo:', error)
+      setLogoMessage('업로드 중 오류가 발생했습니다.')
+    } finally {
+      setLogoLoading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // 로고 삭제 핸들러
+  const handleLogoDelete = async () => {
+    if (!confirm('로고를 삭제하시겠습니까?')) return
+
+    setLogoLoading(true)
+    setLogoMessage(null)
+
+    try {
+      const res = await fetch('/api/settings/logo', { method: 'DELETE' })
+      const data = await res.json()
+
+      if (res.ok) {
+        setLogoUrl(null)
+        setLogoMessage('로고가 삭제되었습니다.')
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        setLogoMessage(data.error || '삭제 실패')
+      }
+    } catch (error) {
+      console.error('Failed to delete logo:', error)
+      setLogoMessage('삭제 중 오류가 발생했습니다.')
+    } finally {
+      setLogoLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="space-y-8">
+        {/* 로고 설정 섹션 */}
+        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+          <div className="border-b border-gray-200 px-6 py-4">
+            <div className="flex items-center gap-x-3">
+              <PhotoIcon className="h-6 w-6 text-gray-400" />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">로고 설정</h2>
+                <p className="text-sm text-gray-500">
+                  회사 로고를 업로드하면 사이드바 상단에 표시됩니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-6">
+            <div className="flex items-start gap-6">
+              {/* 현재 로고 미리보기 */}
+              <div className="flex-shrink-0">
+                <div className="w-40 h-40 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden">
+                  {logoUrl ? (
+                    <Image
+                      src={logoUrl}
+                      alt="Company Logo"
+                      width={160}
+                      height={160}
+                      className="object-contain w-full h-full"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-2 text-xs text-gray-500">로고 없음</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 업로드 컨트롤 */}
+              <div className="flex-1 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">로고 업로드</p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    권장 크기: 200x200px 이상, 최대 5MB<br />
+                    지원 형식: PNG, JPG, SVG, WebP
+                  </p>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={logoLoading}
+                      className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      <ArrowUpTrayIcon className="h-4 w-4" />
+                      {logoLoading ? '업로드 중...' : '로고 업로드'}
+                    </button>
+
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleLogoDelete}
+                        disabled={logoLoading}
+                        className="inline-flex items-center gap-2 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 shadow-sm hover:bg-red-100 disabled:opacity-50"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        삭제
+                      </button>
+                    )}
+                  </div>
+
+                  {logoMessage && (
+                    <p className={`mt-3 text-sm ${logoMessage.includes('성공') || logoMessage.includes('삭제되었') ? 'text-green-600' : 'text-red-600'}`}>
+                      {logoMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 기존 설정 섹션들 */}
         {defaultSettings.map((category) => (
           <div
             key={category.id}

@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import QuoteList from './QuoteList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getQuotes() {
   try {
-    return await prisma.quote.findMany({
+    const quotes = await prisma.quote.findMany({
       include: {
         request: {
           include: {
@@ -19,6 +20,7 @@ async function getQuotes() {
       },
       take: 50,
     })
+    return serializeDecimalArray(quotes)
   } catch (error) {
     console.error('Failed to fetch quotes:', error)
     return []
@@ -27,7 +29,7 @@ async function getQuotes() {
 
 async function getPendingRequests() {
   try {
-    return await prisma.schoolRequest.findMany({
+    const requests = await prisma.schoolRequest.findMany({
       where: {
         status: {
           in: ['SUBMITTED', 'REVIEWING', 'APPROVED'],
@@ -42,16 +44,50 @@ async function getPendingRequests() {
         createdAt: 'desc',
       },
     })
+    return serializeDecimalArray(requests)
   } catch (error) {
     console.error('Failed to fetch pending requests:', error)
     return []
   }
 }
 
+async function getTransportSettings() {
+  try {
+    const settings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: ['transport_0_20', 'transport_20_40', 'transport_40_60', 'transport_60_80', 'transport_80_plus'],
+        },
+      },
+    })
+    const settingsMap: Record<string, string> = {}
+    settings.forEach(s => {
+      settingsMap[s.key] = s.value
+    })
+    return {
+      transport_0_20: settingsMap['transport_0_20'] || '0',
+      transport_20_40: settingsMap['transport_20_40'] || '15000',
+      transport_40_60: settingsMap['transport_40_60'] || '25000',
+      transport_60_80: settingsMap['transport_60_80'] || '35000',
+      transport_80_plus: settingsMap['transport_80_plus'] || '45000',
+    }
+  } catch (error) {
+    console.error('Failed to fetch transport settings:', error)
+    return {
+      transport_0_20: '0',
+      transport_20_40: '15000',
+      transport_40_60: '25000',
+      transport_60_80: '35000',
+      transport_80_plus: '45000',
+    }
+  }
+}
+
 export default async function QuotesPage() {
-  const [quotes, pendingRequests] = await Promise.all([
+  const [quotes, pendingRequests, transportSettings] = await Promise.all([
     getQuotes(),
     getPendingRequests(),
+    getTransportSettings(),
   ])
 
   return (
@@ -70,7 +106,11 @@ export default async function QuotesPage() {
         </div>
       </div>
 
-      <QuoteList initialQuotes={quotes as any} pendingRequests={pendingRequests as any} />
+      <QuoteList
+        initialQuotes={quotes as any}
+        pendingRequests={pendingRequests as any}
+        transportSettings={transportSettings}
+      />
     </div>
   )
 }

@@ -62,11 +62,29 @@ interface Program {
   category: string
 }
 
+interface TransportSettings {
+  transport_0_20: string
+  transport_20_40: string
+  transport_40_60: string
+  transport_60_80: string
+  transport_80_plus: string
+}
+
 interface RequestListProps {
   initialRequests: Request[]
   availableInstructors: Instructor[]
   schools: School[]
   programs: Program[]
+  transportSettings: TransportSettings
+}
+
+// 거리 기반 교통비 계산 함수
+function calculateTransportFee(distanceKm: number, settings: TransportSettings): number {
+  if (distanceKm <= 20) return parseInt(settings.transport_0_20) || 0
+  if (distanceKm <= 40) return parseInt(settings.transport_20_40) || 15000
+  if (distanceKm <= 60) return parseInt(settings.transport_40_60) || 25000
+  if (distanceKm <= 80) return parseInt(settings.transport_60_80) || 35000
+  return parseInt(settings.transport_80_plus) || 45000
 }
 
 const statusColors: Record<string, string> = {
@@ -87,7 +105,7 @@ const statusLabels: Record<string, string> = {
   CANCELLED: '취소됨',
 }
 
-export default function RequestList({ initialRequests, availableInstructors, schools, programs }: RequestListProps) {
+export default function RequestList({ initialRequests, availableInstructors, schools, programs, transportSettings }: RequestListProps) {
   const router = useRouter()
   const [requests] = useState(initialRequests)
   const [filteredRequests, setFilteredRequests] = useState(initialRequests)
@@ -96,6 +114,8 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [selectedInstructorId, setSelectedInstructorId] = useState('')
+  const [assignDistanceKm, setAssignDistanceKm] = useState('')
+  const [assignTransportFee, setAssignTransportFee] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [detailRequest, setDetailRequest] = useState<Request | null>(null)
@@ -148,7 +168,16 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const openAssignModal = (request: Request) => {
     setSelectedRequest(request)
     setSelectedInstructorId('')
+    setAssignDistanceKm('')
+    setAssignTransportFee('')
     setIsAssignModalOpen(true)
+  }
+
+  const handleDistanceChange = (value: string) => {
+    const distance = parseInt(value) || 0
+    const transportFee = calculateTransportFee(distance, transportSettings)
+    setAssignDistanceKm(value)
+    setAssignTransportFee(transportFee.toString())
   }
 
   const openDetailModal = (request: Request) => {
@@ -201,13 +230,19 @@ export default function RequestList({ initialRequests, availableInstructors, sch
       const res = await fetch(`/api/requests/${selectedRequest.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instructorId: selectedInstructorId }),
+        body: JSON.stringify({
+          instructorId: selectedInstructorId,
+          distanceKm: assignDistanceKm,
+          transportFee: assignTransportFee,
+        }),
       })
 
       if (res.ok) {
         setIsAssignModalOpen(false)
         setSelectedRequest(null)
         setSelectedInstructorId('')
+        setAssignDistanceKm('')
+        setAssignTransportFee('')
         router.refresh()
       }
     } catch (error) {
@@ -495,6 +530,44 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                     )
                   })
                 )}
+              </div>
+            </div>
+
+            {/* 거리 및 교통비 입력 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  강사-학교 거리 (km)
+                </label>
+                <input
+                  type="number"
+                  value={assignDistanceKm}
+                  onChange={(e) => handleDistanceChange(e.target.value)}
+                  placeholder="거리를 입력하면 교통비가 자동 계산됩니다"
+                  min="0"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  0-20km: {parseInt(transportSettings.transport_0_20).toLocaleString()}원 |
+                  20-40km: {parseInt(transportSettings.transport_20_40).toLocaleString()}원 |
+                  40-60km: {parseInt(transportSettings.transport_40_60).toLocaleString()}원
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  교통비 (원)
+                </label>
+                <input
+                  type="number"
+                  value={assignTransportFee}
+                  onChange={(e) => setAssignTransportFee(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  자동 계산 후 필요 시 수동 조정 가능
+                </p>
               </div>
             </div>
 

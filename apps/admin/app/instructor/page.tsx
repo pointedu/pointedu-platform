@@ -9,7 +9,9 @@ import {
   ClipboardDocumentListIcon,
   CheckCircleIcon,
   ClockIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
+import { serializeDecimal } from '../../lib/utils'
 
 async function getInstructorData(userId: string) {
   try {
@@ -52,6 +54,27 @@ async function getInstructorData(userId: string) {
       },
     })
 
+    // Get proposed/pending assignments that need response
+    const proposedAssignments = await prisma.instructorAssignment.findMany({
+      where: {
+        instructor: { userId },
+        status: {
+          in: ['PROPOSED', 'PENDING'],
+        },
+      },
+      include: {
+        request: {
+          include: {
+            school: true,
+            program: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
     // Get count of available classes
     const availableClasses = await prisma.schoolRequest.count({
       where: {
@@ -64,10 +87,13 @@ async function getInstructorData(userId: string) {
       },
     })
 
-    return { instructor, availableClasses }
+    // Serialize Decimal values for client component
+    const serializedInstructor = instructor ? serializeDecimal(instructor) : null
+    const serializedProposed = serializeDecimal(proposedAssignments)
+    return { instructor: serializedInstructor, availableClasses, proposedAssignments: serializedProposed }
   } catch (error) {
     console.error('Failed to fetch instructor data:', error)
-    return { instructor: null, availableClasses: 0 }
+    return { instructor: null, availableClasses: 0, proposedAssignments: [] }
   }
 }
 
@@ -75,7 +101,7 @@ export default async function InstructorHomePage() {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id as string
 
-  const { instructor, availableClasses } = await getInstructorData(userId)
+  const { instructor, availableClasses, proposedAssignments } = await getInstructorData(userId)
 
   if (!instructor) {
     return (
@@ -90,6 +116,17 @@ export default async function InstructorHomePage() {
   const pendingApplications = instructor.applications?.length || 0
 
   const stats = [
+    ...(proposedAssignments.length > 0
+      ? [
+          {
+            name: '응답 대기중',
+            value: proposedAssignments.length,
+            icon: ExclamationTriangleIcon,
+            color: 'bg-orange-500',
+            href: '/instructor/schedule',
+          },
+        ]
+      : []),
     {
       name: '다가오는 수업',
       value: upcomingAssignments.length,
@@ -130,6 +167,35 @@ export default async function InstructorHomePage() {
           오늘도 좋은 하루 되세요.
         </p>
       </div>
+
+      {/* Proposed Assignments Alert */}
+      {proposedAssignments.length > 0 && (
+        <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-semibold text-yellow-800">
+                응답이 필요한 수업 제안이 있습니다
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  {proposedAssignments.length}개의 수업 제안이 대기 중입니다. 확인 후 수락 또는 거절해주세요.
+                </p>
+              </div>
+              <div className="mt-3">
+                <Link
+                  href="/instructor/schedule"
+                  className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700 transition-colors"
+                >
+                  수업 제안 확인하기 →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

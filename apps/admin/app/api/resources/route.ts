@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../lib/auth'
 import { prisma } from '@pointedu/database'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { uploadFile, ensureBucket, STORAGE_BUCKETS } from '../../../lib/supabase'
 
 export async function GET() {
   try {
@@ -50,25 +49,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '파일을 선택해주세요.' }, { status: 400 })
     }
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'resources')
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (e) {
-      // Directory might already exist
-    }
+    // Supabase Storage 버킷 확인/생성
+    await ensureBucket(STORAGE_BUCKETS.RESOURCES, true)
 
-    // Generate unique filename
+    // Generate unique filename (Supabase는 한글 파일명을 지원하지 않음)
     const timestamp = Date.now()
-    const ext = path.extname(file.name)
-    const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9가-힣]/g, '_')
-    const uniqueFileName = `${baseName}_${timestamp}${ext}`
-    const filePath = path.join(uploadDir, uniqueFileName)
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const randomStr = Math.random().toString(36).substring(2, 8)
+    const uniqueFileName = `file_${timestamp}_${randomStr}.${ext}`
 
-    // Save file
+    // Upload to Supabase Storage
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+
+    const uploadResult = await uploadFile(
+      STORAGE_BUCKETS.RESOURCES,
+      uniqueFileName,
+      buffer,
+      file.type
+    )
+
+    if (!uploadResult) {
+      return NextResponse.json(
+        { error: '파일 업로드에 실패했습니다.' },
+        { status: 500 }
+      )
+    }
 
     // Create resource record
     const resource = await prisma.resource.create({
@@ -79,7 +85,7 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        filePath: `/uploads/resources/${uniqueFileName}`,
+        filePath: uploadResult.url, // Supabase Storage URL 저장
         isPublic,
         authorId: session.user.id,
         authorName: session.user.name || '관리자',

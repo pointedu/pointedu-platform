@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
@@ -37,6 +39,24 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    // 로고 정보 로드
+    const loadLogo = async () => {
+      try {
+        const res = await fetch('/api/settings/logo')
+        const data = await res.json()
+        if (data.exists && data.url) {
+          setLogoUrl(data.url)
+        }
+      } catch (error) {
+        console.error('Failed to load logo:', error)
+      }
+    }
+
+    loadLogo()
+  }, [])
 
   const handleLogout = () => {
     signOut({ callbackUrl: '/login' })
@@ -45,7 +65,23 @@ export default function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900">
       <div className="flex h-16 shrink-0 items-center px-6">
-        <h1 className="text-2xl font-bold text-white">Point EDU</h1>
+        {logoUrl ? (
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <Image
+              src={logoUrl}
+              alt="Company Logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain rounded"
+              unoptimized
+            />
+            <span className="text-xl font-bold text-white">Point EDU</span>
+          </Link>
+        ) : (
+          <Link href="/dashboard">
+            <h1 className="text-2xl font-bold text-white">Point EDU</h1>
+          </Link>
+        )}
       </div>
       <nav className="flex flex-1 flex-col px-4 py-4">
         <ul role="list" className="flex flex-1 flex-col gap-y-2">

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import InstructorList from './InstructorList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getInstructors() {
   try {
@@ -19,11 +20,8 @@ async function getInstructors() {
         name: 'asc',
       },
     })
-    // Convert Decimal to number for client component compatibility
-    return data.map((instructor) => ({
-      ...instructor,
-      rating: instructor.rating ? Number(instructor.rating) : null,
-    }))
+    // Serialize Decimal values for client component
+    return serializeDecimalArray(data)
   } catch (error) {
     console.error('Failed to fetch instructors:', error)
     return []

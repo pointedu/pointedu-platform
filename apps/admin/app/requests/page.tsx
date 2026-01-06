@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import RequestList from './RequestList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getRequests() {
   try {
-    return await prisma.schoolRequest.findMany({
+    const requests = await prisma.schoolRequest.findMany({
       include: {
         school: true,
         program: true,
@@ -21,6 +22,7 @@ async function getRequests() {
       },
       take: 50,
     })
+    return serializeDecimalArray(requests)
   } catch (error) {
     console.error('Failed to fetch requests:', error)
     return []
@@ -29,7 +31,7 @@ async function getRequests() {
 
 async function getAvailableInstructors() {
   try {
-    return await prisma.instructor.findMany({
+    const instructors = await prisma.instructor.findMany({
       where: {
         status: 'ACTIVE',
       },
@@ -37,6 +39,7 @@ async function getAvailableInstructors() {
         name: 'asc',
       },
     })
+    return serializeDecimalArray(instructors)
   } catch (error) {
     console.error('Failed to fetch instructors:', error)
     return []
@@ -45,9 +48,10 @@ async function getAvailableInstructors() {
 
 async function getSchools() {
   try {
-    return await prisma.school.findMany({
+    const schools = await prisma.school.findMany({
       orderBy: { name: 'asc' },
     })
+    return serializeDecimalArray(schools)
   } catch (error) {
     console.error('Failed to fetch schools:', error)
     return []
@@ -56,22 +60,56 @@ async function getSchools() {
 
 async function getPrograms() {
   try {
-    return await prisma.program.findMany({
+    const programs = await prisma.program.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
     })
+    return serializeDecimalArray(programs)
   } catch (error) {
     console.error('Failed to fetch programs:', error)
     return []
   }
 }
 
+async function getTransportSettings() {
+  try {
+    const settings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: ['transport_0_20', 'transport_20_40', 'transport_40_60', 'transport_60_80', 'transport_80_plus'],
+        },
+      },
+    })
+    const settingsMap: Record<string, string> = {}
+    settings.forEach(s => {
+      settingsMap[s.key] = s.value
+    })
+    return {
+      transport_0_20: settingsMap['transport_0_20'] || '0',
+      transport_20_40: settingsMap['transport_20_40'] || '15000',
+      transport_40_60: settingsMap['transport_40_60'] || '25000',
+      transport_60_80: settingsMap['transport_60_80'] || '35000',
+      transport_80_plus: settingsMap['transport_80_plus'] || '45000',
+    }
+  } catch (error) {
+    console.error('Failed to fetch transport settings:', error)
+    return {
+      transport_0_20: '0',
+      transport_20_40: '15000',
+      transport_40_60: '25000',
+      transport_60_80: '35000',
+      transport_80_plus: '45000',
+    }
+  }
+}
+
 export default async function RequestsPage() {
-  const [requests, instructors, schools, programs] = await Promise.all([
+  const [requests, instructors, schools, programs, transportSettings] = await Promise.all([
     getRequests(),
     getAvailableInstructors(),
     getSchools(),
     getPrograms(),
+    getTransportSettings(),
   ])
 
   return (
@@ -90,6 +128,7 @@ export default async function RequestsPage() {
         availableInstructors={instructors as any}
         schools={schools as any}
         programs={programs as any}
+        transportSettings={transportSettings}
       />
     </div>
   )

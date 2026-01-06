@@ -38,6 +38,8 @@ export default function RegisterPage() {
     experience: '',
     certifications: '',
     bankAccount: '',
+    residentNumber: '',
+    emergencyContact: '',
     message: '',
   })
 
@@ -354,13 +356,44 @@ export default function RegisterPage() {
             {/* 정산 정보 */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">정산 정보</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    주민등록번호 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="000000-0000000"
+                    value={formData.residentNumber}
+                    onChange={(e) => setFormData({ ...formData, residentNumber: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">원천징수 신고에 필요합니다</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">계좌번호</label>
+                  <input
+                    type="text"
+                    placeholder="예: 신한 110-123-456789"
+                    value={formData.bankAccount}
+                    onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 비상연락처 */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">추가 정보</h3>
               <div>
-                <label className="block text-sm font-medium text-gray-700">계좌번호</label>
+                <label className="block text-sm font-medium text-gray-700">비상연락처</label>
                 <input
-                  type="text"
-                  placeholder="예: 신한 110-123-456789"
-                  value={formData.bankAccount}
-                  onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
+                  type="tel"
+                  placeholder="긴급 시 연락 가능한 번호"
+                  value={formData.emergencyContact}
+                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>

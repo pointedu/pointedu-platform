@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import PaymentList from './PaymentList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getPayments() {
   try {
-    return await prisma.payment.findMany({
+    const payments = await prisma.payment.findMany({
       include: {
         instructor: true,
         assignment: {
@@ -23,6 +24,7 @@ async function getPayments() {
       },
       take: 50,
     })
+    return serializeDecimalArray(payments)
   } catch (error) {
     console.error('Failed to fetch payments:', error)
     return []

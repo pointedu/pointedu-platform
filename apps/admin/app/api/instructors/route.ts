@@ -17,7 +17,19 @@ export async function GET() {
       },
       orderBy: { name: 'asc' },
     })
-    return NextResponse.json(instructors)
+
+    // 프론트엔드 호환을 위해 bankAccount를 분리해서 응답
+    const formattedInstructors = instructors.map((instructor) => {
+      const bankParts = (instructor.bankAccount || '').split(' ')
+      return {
+        ...instructor,
+        bankName: bankParts[0] || null,
+        accountNumber: bankParts[1] || null,
+        accountHolder: bankParts[2] || null,
+      }
+    })
+
+    return NextResponse.json(formattedInstructors)
   } catch (error) {
     console.error('Failed to fetch instructors:', error)
     return NextResponse.json({ error: 'Failed to fetch instructors' }, { status: 500 })
@@ -38,14 +50,25 @@ export async function POST(request: NextRequest) {
       maxDistanceKm,
       availableDays,
       bankAccount,
+      // 프론트엔드 호환 필드
+      bankName,
+      accountNumber,
+      accountHolder,
       defaultSessionFee,
     } = body
+
+    // bankAccount 생성: 프론트엔드에서 분리된 필드로 오면 합침
+    let finalBankAccount = bankAccount
+    if (!bankAccount && (bankName || accountNumber || accountHolder)) {
+      const parts = [bankName, accountNumber, accountHolder].filter(Boolean)
+      finalBankAccount = parts.join(' ')
+    }
 
     // Create user first
     const hashedPassword = await bcrypt.hash('instructor2025', 10)
     const user = await prisma.user.create({
       data: {
-        email,
+        email: email || `instructor_${Date.now()}@pointedu.co.kr`,
         password: hashedPassword,
         name,
         role: 'INSTRUCTOR',
@@ -66,14 +89,21 @@ export async function POST(request: NextRequest) {
         rangeKm: rangeKm || '40-60',
         maxDistanceKm: maxDistanceKm || 60,
         availableDays: availableDays || [],
-        bankAccount,
+        bankAccount: finalBankAccount || null,
         defaultSessionFee: defaultSessionFee ? parseFloat(defaultSessionFee) : null,
         status: 'ACTIVE',
       },
       include: { user: true },
     })
 
-    return NextResponse.json(instructor, { status: 201 })
+    // 프론트엔드 호환을 위해 bankAccount를 분리해서 응답
+    const bankParts = (instructor.bankAccount || '').split(' ')
+    return NextResponse.json({
+      ...instructor,
+      bankName: bankParts[0] || '',
+      accountNumber: bankParts[1] || '',
+      accountHolder: bankParts[2] || '',
+    }, { status: 201 })
   } catch (error) {
     console.error('Failed to create instructor:', error)
     return NextResponse.json({ error: 'Failed to create instructor' }, { status: 500 })
