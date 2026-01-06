@@ -1,0 +1,811 @@
+// Point Education Platform Database Schema
+// 포인트교육 통합 자동화 시스템 데이터베이스
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// 사용자 및 인증
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN    // 최고 관리자
+  ADMIN          // 관리자
+  INSTRUCTOR     // 강사
+  STAFF          // 직원
+  SCHOOL         // 학교 담당자
+  USER           // 일반 사용자
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(USER)
+  phoneNumber   String?
+  active        Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  // 관계
+  instructor    Instructor?
+  schoolContact SchoolContact?
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================
+// 강사 관리
+// ============================================
+
+enum InstructorStatus {
+  PENDING        // 승인 대기
+  ACTIVE         // 활동중
+  INACTIVE       // 휴면
+  ON_LEAVE       // 휴직
+  TERMINATED     // 퇴사
+  REJECTED       // 거절됨
+}
+
+model Instructor {
+  id            String            @id @default(cuid())
+  userId        String            @unique
+  user          User              @relation(fields: [userId], references: [id])
+
+  // 기본 정보
+  name          String
+  homeBase      String            // 거주지 (영주, 안동 등)
+  phoneNumber   String
+  email         String?
+  emergencyContact String?
+  bankAccount   String?           // 계좌번호
+
+  // 전문성 정보
+  subjects      String[]          // 전문 과목 배열
+  certifications String[]         // 자격증
+  experience    Int?              // 경력 (년)
+
+  // 활동 범위
+  rangeKm       String            // 활동 범위 (40-60, 70-90, 100-120)
+  maxDistanceKm Int               @default(60)
+  availableDays String[]          // 가능 요일 ["월", "화", "수"]
+
+  // 상태
+  status        InstructorStatus  @default(ACTIVE)
+  rating        Decimal?          @db.Decimal(3, 2) // 평점 (0.00-5.00)
+  totalClasses  Int               @default(0)
+  notes         String?           @db.Text
+
+  // 급여 정보
+  defaultSessionFee Decimal?      @db.Decimal(10, 2)
+  preferredPaymentDay Int?        // 선호 급여일 (1-31)
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // 관계
+  assignments   InstructorAssignment[]
+  payments      Payment[]
+  schedules     InstructorSchedule[]
+  reviews       InstructorReview[]
+  applications  ClassApplication[]
+  resourceAccess ResourceAccess[]
+
+  @@index([homeBase])
+  @@index([status])
+  @@map("instructors")
+}
+
+model InstructorSchedule {
+  id            String      @id @default(cuid())
+  instructorId  String
+  instructor    Instructor  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  date          DateTime    @db.Date
+  timeSlot      String      // "09:00-12:00"
+  isAvailable   Boolean     @default(true)
+  isBlocked     Boolean     @default(false) // 수동으로 차단된 시간
+  notes         String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([instructorId, date, timeSlot])
+  @@index([date])
+  @@index([date, isAvailable])
+  @@map("instructor_schedules")
+}
+
+model InstructorReview {
+  id            String      @id @default(cuid())
+  instructorId  String
+  instructor    Instructor  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  schoolId      String
+  school        School      @relation(fields: [schoolId], references: [id])
+  requestId     String?
+
+  rating        Int         // 1-5
+  comment       String?     @db.Text
+
+  // 세부 평가
+  punctuality   Int?        // 시간 엄수
+  teaching      Int?        // 교육 능력
+  communication Int?        // 의사소통
+
+  createdAt     DateTime    @default(now())
+
+  @@index([instructorId])
+  @@index([rating])
+  @@map("instructor_reviews")
+}
+
+// ============================================
+// 학교 관리
+// ============================================
+
+enum SchoolType {
+  ELEMENTARY     // 초등학교
+  MIDDLE         // 중학교
+  HIGH           // 고등학교
+  SPECIAL        // 특수학교
+  ALTERNATIVE    // 대안학교
+}
+
+model School {
+  id            String      @id @default(cuid())
+
+  // 기본 정보
+  name          String
+  type          SchoolType
+  address       String
+  addressDetail String?
+  region        String      // 지역 (영주시, 안동시 등)
+  latitude      Decimal?    @db.Decimal(10, 8)
+  longitude     Decimal?    @db.Decimal(11, 8)
+
+  // 거리 정보 (포인트교육 본사 기준)
+  distanceKm    Int?        // 본사로부터 거리
+  transportFee  Decimal?    @db.Decimal(10, 2) // 기본 교통비
+
+  // 연락처
+  phoneNumber   String
+  faxNumber     String?
+  email         String?
+  website       String?
+
+  // 통계
+  totalStudents Int?
+  totalRequests Int         @default(0)
+  totalPrograms Int         @default(0)
+
+  // 메모
+  notes         String?     @db.Text
+  preferences   String?     @db.Text // JSON: 선호 강사, 프로그램 등
+
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // 관계
+  contacts      SchoolContact[]
+  requests      SchoolRequest[]
+  reviews       InstructorReview[]
+
+  @@index([region])
+  @@index([type])
+  @@map("schools")
+}
+
+model SchoolContact {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+
+  schoolId      String
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  name          String
+  position      String    // 직책 (교감, 담당교사 등)
+  department    String?   // 부서
+  phoneNumber   String
+  email         String?
+
+  isPrimary     Boolean   @default(false)
+  active        Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([schoolId])
+  @@map("school_contacts")
+}
+
+// ============================================
+// 프로그램 카탈로그
+// ============================================
+
+enum ProgramCategory {
+  FOURTHIND      // 4차 산업
+  CULTURE        // 문화예술
+  MEDICAL        // 메디컬
+  PROFESSIONAL   // 전문직
+  STEAM          // STEAM
+  EXPERIENCE     // 체험형
+  CAREER         // 진로탐색
+  OTHER          // 기타
+}
+
+model Program {
+  id            String          @id @default(cuid())
+
+  // 기본 정보
+  code          String          @unique // 프로그램 코드
+  name          String
+  nameEn        String?
+  category      ProgramCategory
+  description   String          @db.Text
+  objectives    String[]        // 교육 목표
+
+  // 대상 및 시간
+  targetGrades  String[]        // ["초5", "초6", "중1"]
+  minStudents   Int             @default(15)
+  maxStudents   Int             @default(30)
+  sessionCount  Int             @default(2) // 기본 차시
+  sessionMinutes Int            @default(45) // 차시당 분
+
+  // 비용 정보
+  baseMaterialCost Decimal?     @db.Decimal(10, 2) // 1인당 재료비
+  baseSessionFee   Decimal?     @db.Decimal(10, 2) // 기본 강사비
+
+  // 요구사항
+  requiresEquipment String[]     // 필요 장비
+  requiresSpace     String?      // 필요 공간
+
+  // 메타 정보
+  difficulty    Int             @default(3) // 1-5
+  popularity    Int             @default(0) // 인기도 점수
+  tags          String[]        // 태그
+
+  active        Boolean         @default(true)
+  featured      Boolean         @default(false)
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // 관계
+  requests      SchoolRequest[]
+
+  @@index([category])
+  @@index([active, featured])
+  @@map("programs")
+}
+
+// ============================================
+// 학교 요청 및 배정
+// ============================================
+
+enum RequestStatus {
+  DRAFT          // 임시저장
+  SUBMITTED      // 제출됨
+  REVIEWING      // 검토중
+  QUOTED         // 견적 발송
+  APPROVED       // 승인됨
+  ASSIGNED       // 강사 배정됨
+  CONFIRMED      // 확정됨
+  COMPLETED      // 완료됨
+  CANCELLED      // 취소됨
+  REJECTED       // 거절됨
+}
+
+enum RequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model SchoolRequest {
+  id            String          @id @default(cuid())
+  requestNumber String          @unique // REQ-2025-001
+
+  // 학교 정보
+  schoolId      String
+  school        School          @relation(fields: [schoolId], references: [id])
+
+  // 프로그램 정보
+  programId     String?
+  program       Program?        @relation(fields: [programId], references: [id])
+  customProgram String?         // 커스텀 프로그램명
+
+  // 수업 정보
+  sessions      Int             // 차시
+  studentCount  Int             // 학생 수
+  targetGrade   String          // 대상 학년
+
+  // 일정
+  requestDate   DateTime        @default(now())
+  desiredDate   DateTime?       @db.Date
+  alternateDate DateTime?       @db.Date
+  flexibleDate  Boolean         @default(false)
+
+  // 예산
+  schoolBudget  Decimal?        @db.Decimal(12, 2)
+
+  // 상태
+  status        RequestStatus   @default(SUBMITTED)
+  priority      RequestPriority @default(NORMAL)
+
+  // 메모
+  requirements  String?         @db.Text
+  notes         String?         @db.Text
+  internalNotes String?         @db.Text // 내부 메모
+
+  // 승인 정보
+  approvedBy    String?
+  approvedAt    DateTime?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // 관계
+  quote         Quote?
+  assignments   InstructorAssignment[]
+  documents     RequestDocument[]
+  applications  ClassApplication[]
+
+  @@index([status])
+  @@index([requestDate])
+  @@index([schoolId])
+  @@index([desiredDate])
+  @@index([status, requestDate])
+  @@map("school_requests")
+}
+
+model RequestDocument {
+  id            String        @id @default(cuid())
+  requestId     String
+  request       SchoolRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  fileName      String
+  fileType      String        // "application/pdf", "image/jpeg"
+  fileSize      Int           // bytes
+  filePath      String        // 저장 경로
+  documentType  String        // "요청서", "공문", "기타"
+
+  uploadedAt    DateTime      @default(now())
+
+  @@index([requestId])
+  @@map("request_documents")
+}
+
+// ============================================
+// 견적 및 정산
+// ============================================
+
+model Quote {
+  id            String        @id @default(cuid())
+  quoteNumber   String        @unique // QT-2025-001
+
+  requestId     String        @unique
+  request       SchoolRequest @relation(fields: [requestId], references: [id])
+
+  // 비용 구성
+  sessionFee    Decimal       @db.Decimal(10, 2) // 강사비
+  transportFee  Decimal       @db.Decimal(10, 2) // 교통비
+  materialCost  Decimal       @db.Decimal(10, 2) // 재료비
+  assistantFee  Decimal       @db.Decimal(10, 2) @default(0) // 진행요원비
+  overhead      Decimal       @db.Decimal(10, 2) @default(0) // 관리비
+
+  // 계산
+  subtotal      Decimal       @db.Decimal(12, 2)
+  marginRate    Decimal       @db.Decimal(5, 2) // 마진율 (%)
+  marginAmount  Decimal       @db.Decimal(10, 2)
+  vat           Decimal       @db.Decimal(10, 2) // 부가세
+  total         Decimal       @db.Decimal(12, 2)
+
+  // 조정
+  discount      Decimal       @db.Decimal(10, 2) @default(0)
+  finalTotal    Decimal       @db.Decimal(12, 2)
+
+  // 상태
+  validUntil    DateTime      @db.Date
+  acceptedAt    DateTime?
+
+  notes         String?       @db.Text
+
+  createdBy     String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([quoteNumber])
+  @@map("quotes")
+}
+
+// ============================================
+// 강사 배정
+// ============================================
+
+enum AssignmentStatus {
+  PENDING        // 배정 대기
+  PROPOSED       // 제안됨
+  ACCEPTED       // 강사 수락
+  DECLINED       // 강사 거절
+  CONFIRMED      // 확정
+  IN_PROGRESS    // 진행중
+  COMPLETED      // 완료
+  CANCELLED      // 취소됨
+}
+
+model InstructorAssignment {
+  id            String            @id @default(cuid())
+
+  requestId     String
+  request       SchoolRequest     @relation(fields: [requestId], references: [id])
+
+  instructorId  String
+  instructor    Instructor        @relation(fields: [instructorId], references: [id])
+
+  // 배정 정보
+  assignedDate  DateTime          @default(now())
+  scheduledDate DateTime?         @db.Date
+  scheduledTime String?           // "09:00-12:00"
+
+  // 상태
+  status        AssignmentStatus  @default(PENDING)
+
+  // 강사 응답
+  respondedAt   DateTime?
+  response      String?           @db.Text
+
+  // 확정 정보
+  confirmedAt   DateTime?
+  confirmedBy   String?
+
+  // 완료 정보
+  completedAt   DateTime?
+  attendanceCount Int?
+  actualSessions  Int?
+
+  notes         String?           @db.Text
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // 관계
+  payment       Payment?
+
+  @@index([instructorId])
+  @@index([requestId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("instructor_assignments")
+}
+
+// ============================================
+// 정산 및 지급
+// ============================================
+
+enum PaymentStatus {
+  PENDING        // 정산 대기
+  CALCULATED     // 계산됨
+  APPROVED       // 승인됨
+  PROCESSING     // 처리중
+  PAID           // 지급완료
+  CANCELLED      // 취소됨
+  ON_HOLD        // 보류
+}
+
+model Payment {
+  id            String            @id @default(cuid())
+  paymentNumber String            @unique // PAY-2025-001
+
+  assignmentId  String            @unique
+  assignment    InstructorAssignment @relation(fields: [assignmentId], references: [id])
+
+  instructorId  String
+  instructor    Instructor        @relation(fields: [instructorId], references: [id])
+
+  // 비용 계산
+  sessionFee    Decimal           @db.Decimal(10, 2) // 강사비
+  sessions      Int               // 실제 차시
+  transportFee  Decimal           @db.Decimal(10, 2) // 교통비
+  bonus         Decimal           @db.Decimal(10, 2) @default(0) // 인센티브
+
+  subtotal      Decimal           @db.Decimal(10, 2)
+
+  // 공제
+  taxWithholding Decimal          @db.Decimal(10, 2) // 3.3% 원천징수
+  deductions    Decimal           @db.Decimal(10, 2) @default(0) // 기타 공제
+
+  // 실수령액
+  netAmount     Decimal           @db.Decimal(10, 2)
+
+  // 지급 정보
+  paymentMethod String            @default("BANK_TRANSFER")
+  bankAccount   String?
+
+  status        PaymentStatus     @default(PENDING)
+
+  // 승인 정보
+  approvedBy    String?
+  approvedAt    DateTime?
+
+  // 지급 정보
+  paidAt        DateTime?
+  paidBy        String?
+
+  // 회계 정보
+  accountingMonth String          // "2025-01"
+  fiscalYear    Int               @default(2025)
+
+  notes         String?           @db.Text
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([instructorId])
+  @@index([status])
+  @@index([accountingMonth])
+  @@index([paidAt])
+  @@index([paidBy])
+  @@index([accountingMonth, status])
+  @@map("payments")
+}
+
+// ============================================
+// 자동화 로그 및 알림
+// ============================================
+
+enum AutomationTaskType {
+  INSTRUCTOR_MATCHING    // 강사 매칭
+  QUOTE_GENERATION      // 견적 생성
+  PAYMENT_CALCULATION   // 정산 계산
+  DOCUMENT_GENERATION   // 문서 생성
+  EMAIL_NOTIFICATION    // 이메일 알림
+  SMS_NOTIFICATION      // SMS 알림
+  DATA_SYNC             // 데이터 동기화
+}
+
+enum AutomationStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+model AutomationLog {
+  id            String              @id @default(cuid())
+
+  taskType      AutomationTaskType
+  status        AutomationStatus    @default(QUEUED)
+
+  // 작업 정보
+  entityType    String              // "SchoolRequest", "Payment"
+  entityId      String
+
+  // 실행 정보
+  startedAt     DateTime?
+  completedAt   DateTime?
+  duration      Int?                // milliseconds
+
+  // 결과
+  success       Boolean             @default(false)
+  result        String?             @db.Text // JSON result
+  error         String?             @db.Text
+  retryCount    Int                 @default(0)
+
+  createdAt     DateTime            @default(now())
+
+  @@index([taskType, status])
+  @@index([createdAt])
+  @@map("automation_logs")
+}
+
+model Notification {
+  id            String    @id @default(cuid())
+
+  // 수신자
+  userId        String?
+  email         String?
+  phoneNumber   String?
+
+  // 내용
+  type          String    // "EMAIL", "SMS", "PUSH"
+  title         String
+  message       String    @db.Text
+
+  // 상태
+  sent          Boolean   @default(false)
+  sentAt        DateTime?
+  read          Boolean   @default(false)
+  readAt        DateTime?
+
+  // 관련 엔티티
+  relatedType   String?   // "SchoolRequest", "Payment"
+  relatedId     String?
+
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, read])
+  @@index([sent])
+  @@map("notifications")
+}
+
+// ============================================
+// 시스템 설정
+// ============================================
+
+model Setting {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  value         String    @db.Text
+  type          String    @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
+  category      String    @default("GENERAL")
+  description   String?
+
+  updatedBy     String?
+  updatedAt     DateTime  @updatedAt
+
+  @@index([category])
+  @@map("settings")
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+
+  userId        String?
+  action        String    // CREATE, UPDATE, DELETE
+  entityType    String    // SchoolRequest, Payment 등
+  entityId      String
+
+  changes       String?   @db.Text // JSON diff
+  ipAddress     String?
+  userAgent     String?
+
+  createdAt     DateTime  @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// 수업 지원 (강사 → 미배정 수업)
+// ============================================
+
+enum ApplicationStatus {
+  PENDING        // 지원 대기
+  APPROVED       // 승인됨
+  REJECTED       // 거절됨
+  CANCELLED      // 취소됨
+}
+
+model ClassApplication {
+  id            String            @id @default(cuid())
+
+  requestId     String
+  request       SchoolRequest     @relation(fields: [requestId], references: [id])
+
+  instructorId  String
+  instructor    Instructor        @relation(fields: [instructorId], references: [id])
+
+  status        ApplicationStatus @default(PENDING)
+  message       String?           @db.Text  // 지원 메시지
+
+  // 심사 정보
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?           @db.Text
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([requestId, instructorId])
+  @@index([instructorId])
+  @@index([requestId])
+  @@index([status])
+  @@map("class_applications")
+}
+
+// ============================================
+// 공지사항
+// ============================================
+
+model Notice {
+  id            String    @id @default(cuid())
+
+  title         String
+  content       String    @db.Text
+  category      String    @default("GENERAL") // GENERAL, IMPORTANT, EVENT
+
+  // 공개 설정
+  isPublished   Boolean   @default(true)
+  isPinned      Boolean   @default(false) // 상단 고정
+
+  // 조회수
+  viewCount     Int       @default(0)
+
+  // 작성자
+  authorId      String
+  authorName    String
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([isPublished])
+  @@index([isPinned])
+  @@index([createdAt])
+  @@map("notices")
+}
+
+// ============================================
+// 자료실
+// ============================================
+
+model Resource {
+  id            String    @id @default(cuid())
+
+  title         String
+  description   String?   @db.Text
+  category      String    @default("GENERAL") // GENERAL, EDUCATION, FORM, MANUAL
+
+  // 파일 정보
+  fileName      String
+  fileType      String    // application/pdf, image/jpeg 등
+  fileSize      Int       // bytes
+  filePath      String    // 저장 경로 또는 URL
+
+  // 공개 설정
+  isPublic      Boolean   @default(true) // true: 모든 강사 접근 가능
+
+  // 다운로드 수
+  downloadCount Int       @default(0)
+
+  // 작성자
+  authorId      String
+  authorName    String
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 관계: 특정 강사만 접근 가능한 경우
+  accessList    ResourceAccess[]
+
+  @@index([category])
+  @@index([isPublic])
+  @@index([createdAt])
+  @@map("resources")
+}
+
+model ResourceAccess {
+  id            String      @id @default(cuid())
+
+  resourceId    String
+  resource      Resource    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  instructorId  String
+  instructor    Instructor  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  grantedAt     DateTime    @default(now())
+  grantedBy     String
+
+  @@unique([resourceId, instructorId])
+  @@index([instructorId])
+  @@map("resource_access")
+}

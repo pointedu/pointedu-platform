@@ -1,0 +1,40 @@
+{
+  "name": "pointedu-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "포인트교육 통합 관리 플랫폼",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "db:migrate": "npm run -w @pointedu/database db:migrate",
+    "db:seed": "npm run -w @pointedu/database db:seed",
+    "admin": "npm run -w @pointedu/admin dev",
+    "web": "npm run -w @pointedu/web dev",
+    "mobile": "npm run -w @pointedu/mobile dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.1",
+    "turbo": "^1.11.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "packageManager": "npm@9.8.1",
+  "dependencies": {
+    "@prisma/client": "^7.2.0",
+    "prisma": "^7.2.0"
+  }
+}

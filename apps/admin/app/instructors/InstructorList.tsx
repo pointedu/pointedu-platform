@@ -1,0 +1,772 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import SearchFilter from '../../components/SearchFilter'
+import Modal from '../../components/Modal'
+import FormModal from '../../components/FormModal'
+import {
+  UserIcon,
+  PhoneIcon,
+  MapPinIcon,
+  CalendarIcon,
+  StarIcon,
+  AcademicCapIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  CheckIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
+
+interface Instructor {
+  id: string
+  name: string
+  homeBase: string
+  phoneNumber: string
+  email?: string | null
+  subjects: string[]
+  rangeKm: string
+  availableDays: string[]
+  status: string
+  rating: number | null
+  totalClasses: number
+  bankName?: string | null
+  accountNumber?: string | null
+  accountHolder?: string | null
+  _count: {
+    assignments: number
+    payments: number
+  }
+}
+
+interface InstructorListProps {
+  initialInstructors: Instructor[]
+}
+
+const statusColors = {
+  PENDING: 'bg-orange-100 text-orange-800',
+  ACTIVE: 'bg-green-100 text-green-800',
+  INACTIVE: 'bg-gray-100 text-gray-800',
+  ON_LEAVE: 'bg-yellow-100 text-yellow-800',
+  TERMINATED: 'bg-red-100 text-red-800',
+  REJECTED: 'bg-red-100 text-red-800',
+}
+
+const statusLabels = {
+  PENDING: '승인대기',
+  ACTIVE: '활동중',
+  INACTIVE: '휴면',
+  ON_LEAVE: '휴직',
+  TERMINATED: '퇴사',
+  REJECTED: '거절됨',
+}
+
+const filters = [
+  {
+    key: 'status',
+    label: '상태',
+    options: [
+      { value: 'PENDING', label: '승인대기' },
+      { value: 'ACTIVE', label: '활동중' },
+      { value: 'INACTIVE', label: '휴면' },
+      { value: 'ON_LEAVE', label: '휴직' },
+      { value: 'REJECTED', label: '거절됨' },
+    ],
+  },
+  {
+    key: 'homeBase',
+    label: '거주지',
+    options: [
+      { value: '영주', label: '영주' },
+      { value: '안동', label: '안동' },
+      { value: '봉화', label: '봉화' },
+      { value: '예천', label: '예천' },
+      { value: '문경', label: '문경' },
+    ],
+  },
+  {
+    key: 'rangeKm',
+    label: '활동 범위',
+    options: [
+      { value: '40-60', label: '40-60km' },
+      { value: '70-90', label: '70-90km' },
+      { value: '100-120', label: '100-120km' },
+    ],
+  },
+]
+
+const availableSubjects = [
+  'AI/코딩',
+  '드론',
+  '3D프린팅',
+  '메이커',
+  '진로체험',
+  '과학실험',
+  '로봇',
+  '앱개발',
+]
+
+export default function InstructorList({ initialInstructors }: InstructorListProps) {
+  const router = useRouter()
+  const [instructors] = useState(initialInstructors)
+  const [filteredInstructors, setFilteredInstructors] = useState(initialInstructors)
+  const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({})
+
+  // Form modal state
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false)
+  const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    homeBase: '영주',
+    phoneNumber: '',
+    email: '',
+    subjects: [] as string[],
+    rangeKm: '40-60',
+    availableDays: [] as string[],
+    status: 'ACTIVE',
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+  })
+
+  const applyFilters = (query: string, filters: Record<string, string>) => {
+    let result = instructors
+
+    if (query) {
+      const lowerQuery = query.toLowerCase()
+      result = result.filter(
+        (i) =>
+          i.name.toLowerCase().includes(lowerQuery) ||
+          i.subjects.some((s) => s.toLowerCase().includes(lowerQuery)) ||
+          i.homeBase.toLowerCase().includes(lowerQuery)
+      )
+    }
+
+    if (filters.status) {
+      result = result.filter((i) => i.status === filters.status)
+    }
+
+    if (filters.homeBase) {
+      result = result.filter((i) => i.homeBase.includes(filters.homeBase))
+    }
+
+    if (filters.rangeKm) {
+      result = result.filter((i) => i.rangeKm === filters.rangeKm)
+    }
+
+    setFilteredInstructors(result)
+  }
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    applyFilters(query, activeFilters)
+  }
+
+  const handleFilter = (filters: Record<string, string>) => {
+    setActiveFilters(filters)
+    applyFilters(searchQuery, filters)
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      homeBase: '영주',
+      phoneNumber: '',
+      email: '',
+      subjects: [],
+      rangeKm: '40-60',
+      availableDays: [],
+      status: 'ACTIVE',
+      bankName: '',
+      accountNumber: '',
+      accountHolder: '',
+    })
+    setEditingInstructor(null)
+  }
+
+  const openCreateModal = () => {
+    resetForm()
+    setIsFormModalOpen(true)
+  }
+
+  const openEditModal = (instructor: Instructor) => {
+    setEditingInstructor(instructor)
+    setFormData({
+      name: instructor.name,
+      homeBase: instructor.homeBase,
+      phoneNumber: instructor.phoneNumber,
+      email: instructor.email || '',
+      subjects: instructor.subjects,
+      rangeKm: instructor.rangeKm,
+      availableDays: instructor.availableDays,
+      status: instructor.status,
+      bankName: instructor.bankName || '',
+      accountNumber: instructor.accountNumber || '',
+      accountHolder: instructor.accountHolder || '',
+    })
+    setSelectedInstructor(null)
+    setIsFormModalOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const url = editingInstructor
+        ? `/api/instructors/${editingInstructor.id}`
+        : '/api/instructors'
+      const method = editingInstructor ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      if (res.ok) {
+        setIsFormModalOpen(false)
+        resetForm()
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Failed to save instructor:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return
+
+    try {
+      const res = await fetch(`/api/instructors/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setSelectedInstructor(null)
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Failed to delete instructor:', error)
+    }
+  }
+
+  const handleApprove = async (id: string) => {
+    if (!confirm('이 강사의 가입을 승인하시겠습니까?')) return
+
+    try {
+      const res = await fetch(`/api/instructors/${id}/approve`, { method: 'POST' })
+      if (res.ok) {
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Failed to approve instructor:', error)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    const reason = prompt('거절 사유를 입력해주세요:')
+    if (reason === null) return
+
+    try {
+      const res = await fetch(`/api/instructors/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      if (res.ok) {
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Failed to reject instructor:', error)
+    }
+  }
+
+  const toggleSubject = (subject: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subjects: prev.subjects.includes(subject)
+        ? prev.subjects.filter(s => s !== subject)
+        : [...prev.subjects, subject]
+    }))
+  }
+
+  const toggleDay = (day: string) => {
+    setFormData(prev => ({
+      ...prev,
+      availableDays: prev.availableDays.includes(day)
+        ? prev.availableDays.filter(d => d !== day)
+        : [...prev.availableDays, day]
+    }))
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex justify-between items-center">
+        <SearchFilter
+          placeholder="강사명, 과목, 지역으로 검색..."
+          filters={filters}
+          onSearch={handleSearch}
+          onFilter={handleFilter}
+        />
+        <button
+          onClick={openCreateModal}
+          className="ml-4 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+        >
+          <PlusIcon className="h-5 w-5" />
+          강사 등록
+        </button>
+      </div>
+
+      <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-300">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                이름
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                거주지
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                전문 과목
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                활동 범위
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                가능 요일
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                배정/정산
+              </th>
+              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                상태
+              </th>
+              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
+                작업
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredInstructors.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-gray-500">
+                  {instructors.length === 0
+                    ? '등록된 강사가 없습니다.'
+                    : '검색 결과가 없습니다.'}
+                </td>
+              </tr>
+            ) : (
+              filteredInstructors.map((instructor) => (
+                <tr
+                  key={instructor.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedInstructor(instructor)}
+                >
+                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                    {instructor.name}
+                    <div className="text-xs text-gray-500">{instructor.phoneNumber}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                    {instructor.homeBase}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-900">
+                    <div className="max-w-xs truncate">
+                      {instructor.subjects.join(', ')}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                    {instructor.rangeKm}km
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                    {instructor.availableDays.join(', ')}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                    {instructor._count.assignments}건 / {instructor._count.payments}건
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                        statusColors[instructor.status as keyof typeof statusColors] ||
+                        'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {statusLabels[instructor.status as keyof typeof statusLabels] ||
+                        instructor.status}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
+                    {instructor.status === 'PENDING' ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleApprove(instructor.id)
+                          }}
+                          className="text-green-600 hover:text-green-900 mr-2"
+                          title="승인"
+                        >
+                          <CheckIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleReject(instructor.id)
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                          title="거절"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditModal(instructor)
+                          }}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(instructor.id)
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detail Modal */}
+      <Modal
+        isOpen={!!selectedInstructor}
+        onClose={() => setSelectedInstructor(null)}
+        title="강사 상세 정보"
+        size="lg"
+      >
+        {selectedInstructor && (
+          <div className="space-y-6">
+            <div className="flex items-start gap-6">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
+                <UserIcon className="h-10 w-10 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {selectedInstructor.name}
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <PhoneIcon className="h-4 w-4" />
+                    {selectedInstructor.phoneNumber}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPinIcon className="h-4 w-4" />
+                    {selectedInstructor.homeBase}
+                  </span>
+                  {selectedInstructor.rating && (
+                    <span className="flex items-center gap-1">
+                      <StarIcon className="h-4 w-4 text-yellow-500" />
+                      {Number(selectedInstructor.rating).toFixed(1)}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                    statusColors[selectedInstructor.status as keyof typeof statusColors]
+                  }`}
+                >
+                  {statusLabels[selectedInstructor.status as keyof typeof statusLabels]}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <AcademicCapIcon className="h-4 w-4" />
+                  전문 과목
+                </h4>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedInstructor.subjects.map((subject) => (
+                    <span
+                      key={subject}
+                      className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700"
+                    >
+                      {subject}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <CalendarIcon className="h-4 w-4" />
+                  가능 요일
+                </h4>
+                <div className="mt-2 flex gap-1">
+                  {['월', '화', '수', '목', '금'].map((day) => (
+                    <span
+                      key={day}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+                        selectedInstructor.availableDays.includes(day)
+                          ? 'bg-green-100 text-green-700 font-semibold'
+                          : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {day}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">활동 범위</h4>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {selectedInstructor.rangeKm}km
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">총 수업</h4>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {selectedInstructor.totalClasses}회
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">
+                  {selectedInstructor._count.assignments}
+                </p>
+                <p className="text-sm text-gray-500">배정 건수</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">
+                  {selectedInstructor._count.payments}
+                </p>
+                <p className="text-sm text-gray-500">정산 건수</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => handleDelete(selectedInstructor.id)}
+                className="rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
+              >
+                삭제
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedInstructor(null)}
+                className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={() => openEditModal(selectedInstructor)}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+              >
+                수정하기
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Create/Edit Form Modal */}
+      <FormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={editingInstructor ? '강사 수정' : '강사 등록'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">이름 *</label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">상태</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">전화번호 *</label>
+              <input
+                type="text"
+                required
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">이메일</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">거주지 *</label>
+              <select
+                value={formData.homeBase}
+                onChange={(e) => setFormData({ ...formData, homeBase: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                <option value="영주">영주</option>
+                <option value="안동">안동</option>
+                <option value="봉화">봉화</option>
+                <option value="예천">예천</option>
+                <option value="문경">문경</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">활동 범위 *</label>
+              <select
+                value={formData.rangeKm}
+                onChange={(e) => setFormData({ ...formData, rangeKm: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                <option value="40-60">40-60km</option>
+                <option value="70-90">70-90km</option>
+                <option value="100-120">100-120km</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">전문 과목</label>
+            <div className="flex flex-wrap gap-2">
+              {availableSubjects.map((subject) => (
+                <button
+                  key={subject}
+                  type="button"
+                  onClick={() => toggleSubject(subject)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    formData.subjects.includes(subject)
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {subject}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">가능 요일</label>
+            <div className="flex gap-2">
+              {['월', '화', '수', '목', '금'].map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDay(day)}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium ${
+                    formData.availableDays.includes(day)
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">계좌 정보</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">은행명</label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">계좌번호</label>
+                <input
+                  type="text"
+                  value={formData.accountNumber}
+                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">예금주</label>
+                <input
+                  type="text"
+                  value={formData.accountHolder}
+                  onChange={(e) => setFormData({ ...formData, accountHolder: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsFormModalOpen(false)}
+              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+            >
+              {loading ? '저장 중...' : editingInstructor ? '수정' : '등록'}
+            </button>
+          </div>
+        </form>
+      </FormModal>
+    </>
+  )
+}

@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "preserve",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "incremental": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pointedu/ui": ["./packages/ui/src"],
+      "@pointedu/database": ["./packages/database/src"],
+      "@pointedu/api": ["./packages/api/src"],
+      "@pointedu/utils": ["./packages/utils/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".turbo", ".next", "build"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+}
