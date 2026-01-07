@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+import { instructorCreateSchema, validateBody } from '../../../lib/validations'
 import bcrypt from 'bcryptjs'
 
-// GET - List all instructors
-export async function GET() {
+// GET - 강사 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const instructors = await prisma.instructor.findMany({
       include: {
@@ -29,17 +33,25 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json(formattedInstructors)
+    return successResponse(formattedInstructors)
   } catch (error) {
     console.error('Failed to fetch instructors:', error)
-    return NextResponse.json({ error: 'Failed to fetch instructors' }, { status: 500 })
+    return errorResponse('강사 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Create new instructor
-export async function POST(request: NextRequest) {
+// POST - 강사 생성 (관리자 전용 + 입력 검증)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
+
+    // 입력 검증
+    const validation = validateBody(instructorCreateSchema, body)
+    if (!validation.success) {
+      return errorResponse(validation.error, 400)
+    }
+
+    const data = validation.data
     const {
       name,
       email,
@@ -50,12 +62,11 @@ export async function POST(request: NextRequest) {
       maxDistanceKm,
       availableDays,
       bankAccount,
-      // 프론트엔드 호환 필드
       bankName,
       accountNumber,
       accountHolder,
       defaultSessionFee,
-    } = body
+    } = data
 
     // bankAccount 생성: 프론트엔드에서 분리된 필드로 오면 합침
     let finalBankAccount = bankAccount
@@ -82,15 +93,15 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         name,
-        email,
-        phoneNumber,
-        homeBase,
+        email: email || null,
+        phoneNumber: phoneNumber || '',
+        homeBase: homeBase || '',
         subjects: subjects || [],
         rangeKm: rangeKm || '40-60',
         maxDistanceKm: maxDistanceKm || 60,
         availableDays: availableDays || [],
         bankAccount: finalBankAccount || null,
-        defaultSessionFee: defaultSessionFee ? parseFloat(defaultSessionFee) : null,
+        defaultSessionFee: defaultSessionFee ? parseFloat(String(defaultSessionFee)) : null,
         status: 'ACTIVE',
       },
       include: { user: true },
@@ -98,14 +109,14 @@ export async function POST(request: NextRequest) {
 
     // 프론트엔드 호환을 위해 bankAccount를 분리해서 응답
     const bankParts = (instructor.bankAccount || '').split(' ')
-    return NextResponse.json({
+    return successResponse({
       ...instructor,
       bankName: bankParts[0] || '',
       accountNumber: bankParts[1] || '',
       accountHolder: bankParts[2] || '',
-    }, { status: 201 })
+    }, 201)
   } catch (error) {
     console.error('Failed to create instructor:', error)
-    return NextResponse.json({ error: 'Failed to create instructor' }, { status: 500 })
+    return errorResponse('강사 생성에 실패했습니다.', 500)
   }
-}
+})

@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - Get single program
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
+
+// GET - 프로그램 상세 조회 (인증 필요)
+export const GET = withAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const program = await prisma.program.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         requests: {
           include: { school: true },
@@ -19,22 +22,22 @@ export async function GET(
     })
 
     if (!program) {
-      return NextResponse.json({ error: 'Program not found' }, { status: 404 })
+      return errorResponse('프로그램을 찾을 수 없습니다.', 404)
     }
 
-    return NextResponse.json(program)
+    return successResponse(program)
   } catch (error) {
     console.error('Failed to fetch program:', error)
-    return NextResponse.json({ error: 'Failed to fetch program' }, { status: 500 })
+    return errorResponse('프로그램 정보를 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// PUT - Update program
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PUT - 프로그램 수정 (관리자 전용)
+export const PUT = withAdminAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const body = await request.json()
 
     // 프론트엔드 호환: duration → sessionMinutes, basePrice → baseSessionFee
@@ -69,31 +72,31 @@ export async function PUT(
     }
 
     const program = await prisma.program.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     })
 
-    return NextResponse.json({
+    return successResponse({
       ...program,
       duration: program.sessionMinutes,
       basePrice: program.baseSessionFee,
     })
   } catch (error) {
     console.error('Failed to update program:', error)
-    return NextResponse.json({ error: 'Failed to update program' }, { status: 500 })
+    return errorResponse('프로그램 수정에 실패했습니다.', 500)
   }
-}
+})
 
-// DELETE - Delete program
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// DELETE - 프로그램 삭제 (관리자 전용)
+export const DELETE = withAdminAuth(async (request, context) => {
   try {
-    await prisma.program.delete({ where: { id: params.id } })
-    return NextResponse.json({ message: 'Program deleted successfully' })
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
+    await prisma.program.delete({ where: { id } })
+    return successResponse({ message: '프로그램이 삭제되었습니다.' })
   } catch (error) {
     console.error('Failed to delete program:', error)
-    return NextResponse.json({ error: 'Failed to delete program' }, { status: 500 })
+    return errorResponse('프로그램 삭제에 실패했습니다.', 500)
   }
-}
+})

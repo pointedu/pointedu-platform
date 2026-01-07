@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - Get single school
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
+
+// GET - 학교 상세 조회 (인증 필요)
+export const GET = withAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const school = await prisma.school.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         contacts: true,
         requests: {
@@ -20,22 +23,22 @@ export async function GET(
     })
 
     if (!school) {
-      return NextResponse.json({ error: 'School not found' }, { status: 404 })
+      return errorResponse('학교를 찾을 수 없습니다.', 404)
     }
 
-    return NextResponse.json(school)
+    return successResponse(school)
   } catch (error) {
     console.error('Failed to fetch school:', error)
-    return NextResponse.json({ error: 'Failed to fetch school' }, { status: 500 })
+    return errorResponse('학교 정보를 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// PUT - Update school
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PUT - 학교 수정 (관리자 전용)
+export const PUT = withAdminAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const body = await request.json()
     const {
       name,
@@ -54,7 +57,7 @@ export async function PUT(
     } = body
 
     const school = await prisma.school.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         type,
@@ -72,23 +75,23 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(school)
+    return successResponse(school)
   } catch (error) {
     console.error('Failed to update school:', error)
-    return NextResponse.json({ error: 'Failed to update school' }, { status: 500 })
+    return errorResponse('학교 수정에 실패했습니다.', 500)
   }
-}
+})
 
-// DELETE - Delete school
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// DELETE - 학교 삭제 (관리자 전용)
+export const DELETE = withAdminAuth(async (request, context) => {
   try {
-    await prisma.school.delete({ where: { id: params.id } })
-    return NextResponse.json({ message: 'School deleted successfully' })
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
+    await prisma.school.delete({ where: { id } })
+    return successResponse({ message: '학교가 삭제되었습니다.' })
   } catch (error) {
     console.error('Failed to delete school:', error)
-    return NextResponse.json({ error: 'Failed to delete school' }, { status: 500 })
+    return errorResponse('학교 삭제에 실패했습니다.', 500)
   }
-}
+})

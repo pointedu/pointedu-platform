@@ -1,24 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - Get all settings
-export async function GET() {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+
+// GET - 설정 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const settings = await prisma.setting.findMany({
       orderBy: [{ category: 'asc' }, { key: 'asc' }],
     })
-    return NextResponse.json(settings)
+    return successResponse(settings)
   } catch (error) {
     console.error('Failed to fetch settings:', error)
-    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
+    return errorResponse('설정을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Update multiple settings
-export async function POST(request: NextRequest) {
+// POST - 설정 수정 (관리자 전용)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
     const { settings } = body
+
+    if (!settings || !Array.isArray(settings)) {
+      return errorResponse('설정 데이터가 필요합니다.', 400)
+    }
 
     // Update each setting
     const updates = await Promise.all(
@@ -35,9 +42,9 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    return NextResponse.json(updates)
+    return successResponse(updates)
   } catch (error) {
     console.error('Failed to update settings:', error)
-    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
+    return errorResponse('설정 수정에 실패했습니다.', 500)
   }
-}
+})

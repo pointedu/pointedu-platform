@@ -1,8 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - List all schools
-export async function GET() {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+import { validateBody } from '../../../lib/validations'
+import { z } from 'zod'
+
+// 학교 생성 스키마
+const schoolSchema = z.object({
+  name: z.string().min(1, '학교명은 필수입니다.'),
+  type: z.enum(['ELEMENTARY', 'MIDDLE', 'HIGH', 'SPECIAL']).optional(),
+  address: z.string().optional().nullable(),
+  addressDetail: z.string().optional().nullable(),
+  region: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  faxNumber: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  distanceKm: z.union([z.string(), z.number()]).optional().nullable(),
+  transportFee: z.union([z.string(), z.number()]).optional().nullable(),
+  totalStudents: z.union([z.string(), z.number()]).optional().nullable(),
+  notes: z.string().optional().nullable(),
+})
+
+// GET - 학교 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const schools = await prisma.school.findMany({
       include: {
@@ -15,17 +36,25 @@ export async function GET() {
       },
       orderBy: { name: 'asc' },
     })
-    return NextResponse.json(schools)
+    return successResponse(schools)
   } catch (error) {
     console.error('Failed to fetch schools:', error)
-    return NextResponse.json({ error: 'Failed to fetch schools' }, { status: 500 })
+    return errorResponse('학교 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Create new school
-export async function POST(request: NextRequest) {
+// POST - 학교 생성 (관리자 전용 + 입력 검증)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
+
+    // 입력 검증
+    const validation = validateBody(schoolSchema, body)
+    if (!validation.success) {
+      return errorResponse(validation.error, 400)
+    }
+
+    const data = validation.data
     const {
       name,
       type,
@@ -39,29 +68,29 @@ export async function POST(request: NextRequest) {
       transportFee,
       totalStudents,
       notes,
-    } = body
+    } = data
 
     const school = await prisma.school.create({
       data: {
         name,
         type: type || 'MIDDLE',
-        address,
-        addressDetail,
-        region,
-        phoneNumber,
-        faxNumber,
-        email,
-        distanceKm: distanceKm ? parseInt(distanceKm) : null,
-        transportFee: transportFee ? parseFloat(transportFee) : null,
-        totalStudents: totalStudents ? parseInt(totalStudents) : null,
-        notes,
+        address: address || '',
+        addressDetail: addressDetail || null,
+        region: region || '',
+        phoneNumber: phoneNumber || '',
+        faxNumber: faxNumber || null,
+        email: email || null,
+        distanceKm: distanceKm ? parseInt(String(distanceKm)) : null,
+        transportFee: transportFee ? parseFloat(String(transportFee)) : null,
+        totalStudents: totalStudents ? parseInt(String(totalStudents)) : null,
+        notes: notes || null,
         active: true,
       },
     })
 
-    return NextResponse.json(school, { status: 201 })
+    return successResponse(school, 201)
   } catch (error) {
     console.error('Failed to create school:', error)
-    return NextResponse.json({ error: 'Failed to create school' }, { status: 500 })
+    return errorResponse('학교 생성에 실패했습니다.', 500)
   }
-}
+})

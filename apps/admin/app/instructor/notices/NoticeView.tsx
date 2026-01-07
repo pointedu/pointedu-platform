@@ -49,7 +49,7 @@ export default function NoticeView({ notices }: NoticeViewProps) {
     // 조회수 증가 API 호출
     try {
       await fetch(`/api/notices/${notice.id}`)
-    } catch (e) {
+    } catch (_e) {
       // 조회수 실패해도 무시
     }
   }

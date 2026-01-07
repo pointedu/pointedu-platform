@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - List all quotes
-export async function GET() {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+
+// GET - 견적 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const quotes = await prisma.quote.findMany({
       include: {
@@ -15,15 +18,15 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(quotes)
+    return successResponse(quotes)
   } catch (error) {
     console.error('Failed to fetch quotes:', error)
-    return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 })
+    return errorResponse('견적 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Create new quote
-export async function POST(request: NextRequest) {
+// POST - 견적 생성 (관리자 전용)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
     const {
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
         discount: parseFloat(discount || 0),
         finalTotal,
         validUntil,
-        notes,
+        notes: notes || null,
         createdBy: 'admin',
       },
       include: {
@@ -89,9 +92,9 @@ export async function POST(request: NextRequest) {
       data: { status: 'QUOTED' },
     })
 
-    return NextResponse.json(quote, { status: 201 })
+    return successResponse(quote, 201)
   } catch (error) {
     console.error('Failed to create quote:', error)
-    return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 })
+    return errorResponse('견적 생성에 실패했습니다.', 500)
   }
-}
+})

@@ -4,7 +4,7 @@
  */
 
 import { Decimal } from 'decimal.js'
-import { prisma } from '@pointedu/database'
+import { prisma, Prisma } from '@pointedu/database'
 import { calculateSessionFee } from '../payment-calculator/calculator'
 import { calculateTransportFee } from '../utils/distance'
 
@@ -283,7 +283,7 @@ export async function createQuote(
   validUntil.setDate(validUntil.getDate() + validDays)
 
   // 트랜잭션으로 견적 생성 및 요청 상태 업데이트
-  const quote = await prisma.$transaction(async (tx) => {
+  const quote = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 견적 생성
     const createdQuote = await tx.quote.create({
       data: {

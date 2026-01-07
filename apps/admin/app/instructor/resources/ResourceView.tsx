@@ -75,7 +75,7 @@ export default function ResourceView({ resources }: ResourceViewProps) {
     // 다운로드 카운트 증가 API 호출 (선택적)
     try {
       await fetch(`/api/resources/${resource.id}/download`, { method: 'POST' })
-    } catch (err) {
+    } catch (_err) {
       // 실패해도 무시
     }
 

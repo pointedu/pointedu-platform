@@ -39,3 +39,33 @@ body {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* React DatePicker 커스텀 스타일 */
+.react-datepicker {
+  font-family: inherit;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.react-datepicker__header {
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding-top: 0.5rem;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.react-datepicker__day:hover {
+  background-color: #dbeafe;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: #60a5fa;
+}

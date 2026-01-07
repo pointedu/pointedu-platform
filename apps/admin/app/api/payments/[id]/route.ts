@@ -1,16 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// PUT - Update payment status
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { prisma } from '@pointedu/database'
+import { withAdminAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
+
+// PUT - 급여 상태 수정 (관리자 전용)
+export const PUT = withAdminAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const body = await request.json()
     const { status, approvedBy, paidBy } = body
 
-    const updateData: any = { status }
+    const updateData: Record<string, unknown> = { status }
 
     if (status === 'APPROVED') {
       updateData.approvedAt = new Date()
@@ -23,7 +26,7 @@ export async function PUT(
     }
 
     const payment = await prisma.payment.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         instructor: true,
@@ -35,9 +38,9 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(payment)
+    return successResponse(payment)
   } catch (error) {
     console.error('Failed to update payment:', error)
-    return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 })
+    return errorResponse('급여 수정에 실패했습니다.', 500)
   }
-}
+})

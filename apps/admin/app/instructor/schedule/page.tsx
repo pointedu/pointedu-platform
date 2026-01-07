@@ -22,6 +22,7 @@ type SerializedAssignment = {
     customProgram?: string | null
     studentCount?: number
     sessions: number
+    desiredDate?: string | null
   }
 }
 

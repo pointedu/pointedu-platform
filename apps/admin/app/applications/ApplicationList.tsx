@@ -71,7 +71,7 @@ export default function ApplicationList({ initialApplications }: Props) {
       })
 
       if (res.ok) {
-        const data = await res.json()
+        await res.json()
         setApplications(apps =>
           apps.map(app =>
             app.id === id
@@ -86,7 +86,7 @@ export default function ApplicationList({ initialApplications }: Props) {
         const error = await res.json()
         alert(error.error || '처리 중 오류가 발생했습니다.')
       }
-    } catch (error) {
+    } catch (_error) {
       alert('처리 중 오류가 발생했습니다.')
     } finally {
       setLoading(null)

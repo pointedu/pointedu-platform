@@ -1,15 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - Get schedules (school requests with dates)
-export async function GET(request: NextRequest) {
+import { NextRequest } from 'next/server'
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+
+// GET - 일정 조회 (인증 필요)
+export const GET = withAuth(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('start')
     const endDate = searchParams.get('end')
     const schoolId = searchParams.get('schoolId')
 
-    const where: any = {}
+    const where: Record<string, unknown> = {}
 
     if (startDate && endDate) {
       where.desiredDate = {
@@ -34,15 +38,15 @@ export async function GET(request: NextRequest) {
       orderBy: { desiredDate: 'asc' },
     })
 
-    return NextResponse.json(schedules)
+    return successResponse(schedules)
   } catch (error) {
     console.error('Failed to fetch schedules:', error)
-    return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 })
+    return errorResponse('일정을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Create new school request (schedule)
-export async function POST(request: NextRequest) {
+// POST - 일정 생성 (관리자 전용)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
     const {
@@ -77,13 +81,13 @@ export async function POST(request: NextRequest) {
         customProgram: customProgram || null,
         sessions: parseInt(sessions),
         studentCount: parseInt(studentCount),
-        targetGrade,
+        targetGrade: targetGrade || '',
         desiredDate: desiredDate ? new Date(desiredDate) : null,
         alternateDate: alternateDate ? new Date(alternateDate) : null,
         flexibleDate: flexibleDate || false,
         schoolBudget: schoolBudget ? parseFloat(schoolBudget) : null,
-        requirements,
-        notes,
+        requirements: requirements || null,
+        notes: notes || null,
         status: 'SUBMITTED',
         priority: 'NORMAL',
       },
@@ -93,9 +97,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(schoolRequest, { status: 201 })
+    return successResponse(schoolRequest, 201)
   } catch (error) {
     console.error('Failed to create schedule:', error)
-    return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 })
+    return errorResponse('일정 생성에 실패했습니다.', 500)
   }
-}
+})

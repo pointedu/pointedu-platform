@@ -17,9 +17,9 @@ interface Program {
   name: string
   category: string
   description?: string | null
-  duration: number
+  sessionMinutes?: number | null
   maxStudents?: number | null
-  basePrice?: number | null
+  baseSessionFee?: number | string | null
   active: boolean
   _count: { requests: number }
 }
@@ -35,7 +35,7 @@ const categoryLabels: Record<string, string> = {
 
 export default function ProgramList({ initialPrograms }: { initialPrograms: Program[] }) {
   const router = useRouter()
-  const [programs, setPrograms] = useState(initialPrograms)
+  const [programs, _setPrograms] = useState(initialPrograms)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,9 +43,9 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
     name: '',
     category: 'CAREER',
     description: '',
-    duration: '45',
+    sessionMinutes: '45',
     maxStudents: '',
-    basePrice: '',
+    baseSessionFee: '',
   })
 
   const resetForm = () => {
@@ -53,9 +53,9 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
       name: '',
       category: 'CAREER',
       description: '',
-      duration: '45',
+      sessionMinutes: '45',
       maxStudents: '',
-      basePrice: '',
+      baseSessionFee: '',
     })
     setEditingProgram(null)
   }
@@ -71,9 +71,9 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
       name: program.name,
       category: program.category,
       description: program.description || '',
-      duration: program.duration.toString(),
+      sessionMinutes: program.sessionMinutes?.toString() || '45',
       maxStudents: program.maxStudents?.toString() || '',
-      basePrice: program.basePrice?.toString() || '',
+      baseSessionFee: program.baseSessionFee?.toString() || '',
     })
     setIsModalOpen(true)
   }
@@ -174,15 +174,15 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
                   <ClockIcon className="h-4 w-4" />
-                  {program.duration}분
+                  {program.sessionMinutes || 45}분
                 </span>
                 {program.maxStudents && (
                   <span>최대 {program.maxStudents}명</span>
                 )}
-                {program.basePrice && (
+                {program.baseSessionFee && (
                   <span className="flex items-center gap-1">
                     <CurrencyDollarIcon className="h-4 w-4" />
-                    {Number(program.basePrice).toLocaleString()}원
+                    {Number(program.baseSessionFee).toLocaleString()}원
                   </span>
                 )}
               </div>
@@ -245,8 +245,8 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <input
                 type="number"
                 required
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                value={formData.sessionMinutes}
+                onChange={(e) => setFormData({ ...formData, sessionMinutes: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -263,8 +263,8 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <label className="block text-sm font-medium text-gray-700">기본 가격 (원)</label>
               <input
                 type="number"
-                value={formData.basePrice}
-                onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                value={formData.baseSessionFee}
+                onChange={(e) => setFormData({ ...formData, baseSessionFee: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>

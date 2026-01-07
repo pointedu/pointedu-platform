@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../../../../lib/auth'
 import { prisma } from '@pointedu/database'
 import { sendReminderNotification } from '../../../../lib/notification'
 
@@ -144,6 +146,12 @@ export async function GET(request: NextRequest) {
 // POST - 수동으로 특정 날짜의 리마인더 발송 (관리자용)
 export async function POST(request: NextRequest) {
   try {
+    // 관리자 인증 확인
+    const session = await getServerSession(authOptions)
+    if (!session || !['ADMIN', 'SUPER_ADMIN'].includes(session.user?.role as string)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { daysAhead = 5 } = body
 

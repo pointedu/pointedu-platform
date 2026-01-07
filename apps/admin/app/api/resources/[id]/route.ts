@@ -1,16 +1,19 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../lib/auth'
 import { prisma } from '@pointedu/database'
 import { unlink } from 'fs/promises'
 import path from 'path'
+import { withAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// GET - 자료 상세 조회 (인증 필요)
+export const GET = withAuth(async (request, context) => {
   try {
-    const { id } = params
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
 
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -29,7 +32,7 @@ export async function GET(
     })
 
     if (!resource) {
-      return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
+      return errorResponse('자료를 찾을 수 없습니다.', 404)
     }
 
     // Increment download count
@@ -38,13 +41,14 @@ export async function GET(
       data: { downloadCount: { increment: 1 } },
     })
 
-    return NextResponse.json(resource)
+    return successResponse(resource)
   } catch (error) {
     console.error('Failed to fetch resource:', error)
-    return NextResponse.json({ error: 'Failed to fetch resource' }, { status: 500 })
+    return errorResponse('자료를 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
+// PUT - 자료 수정 (관리자 전용 - 수동 인증 유지)
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -80,6 +84,7 @@ export async function PUT(
   }
 }
 
+// DELETE - 자료 삭제 (관리자 전용 - 수동 인증 유지)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

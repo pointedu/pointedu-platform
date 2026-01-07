@@ -79,7 +79,7 @@ export default function ScheduleList({ assignments }: ScheduleListProps) {
         const data = await res.json()
         alert(data.error || '수락 처리 중 오류가 발생했습니다.')
       }
-    } catch (error) {
+    } catch (_error) {
       alert('수락 처리 중 오류가 발생했습니다.')
     } finally {
       setLoading(null)
@@ -103,7 +103,7 @@ export default function ScheduleList({ assignments }: ScheduleListProps) {
         const data = await res.json()
         alert(data.error || '거절 처리 중 오류가 발생했습니다.')
       }
-    } catch (error) {
+    } catch (_error) {
       alert('거절 처리 중 오류가 발생했습니다.')
     } finally {
       setLoading(null)

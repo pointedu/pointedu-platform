@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../lib/auth'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
 import { uploadFile, ensureBucket, STORAGE_BUCKETS } from '../../../lib/supabase'
 
-export async function GET() {
+// GET - 공지사항 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const notices = await prisma.notice.findMany({
       orderBy: [
@@ -12,21 +14,16 @@ export async function GET() {
         { createdAt: 'desc' },
       ],
     })
-    return NextResponse.json(notices)
+    return successResponse(notices)
   } catch (error) {
     console.error('Failed to fetch notices:', error)
-    return NextResponse.json({ error: 'Failed to fetch notices' }, { status: 500 })
+    return errorResponse('공지사항 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+// POST - 공지사항 생성 (관리자 전용)
+export const POST = withAdminAuth(async (request, { user }) => {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !['ADMIN', 'SUPER_ADMIN'].includes(session.user?.role as string)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const contentType = request.headers.get('content-type') || ''
 
     let title: string
@@ -55,13 +52,21 @@ export async function POST(request: NextRequest) {
       isPublished = formData.get('isPublished') === 'true'
       isPinned = formData.get('isPinned') === 'true'
 
+      // 입력 검증
+      if (!title || title.trim() === '') {
+        return errorResponse('제목은 필수입니다.', 400)
+      }
+      if (!content || content.trim() === '') {
+        return errorResponse('내용은 필수입니다.', 400)
+      }
+
       const file = formData.get('file') as File | null
 
       if (file && file.size > 0) {
         // Supabase Storage 버킷 확인/생성
         await ensureBucket(STORAGE_BUCKETS.NOTICES, true)
 
-        // Generate unique filename (Supabase는 한글 파일명을 지원하지 않음)
+        // Generate unique filename
         const timestamp = Date.now()
         const ext = file.name.split('.').pop()?.toLowerCase() || ''
         const randomStr = Math.random().toString(36).substring(2, 8)
@@ -95,6 +100,14 @@ export async function POST(request: NextRequest) {
       category = body.category
       isPublished = body.isPublished ?? true
       isPinned = body.isPinned ?? false
+
+      // 입력 검증
+      if (!title || title.trim() === '') {
+        return errorResponse('제목은 필수입니다.', 400)
+      }
+      if (!content || content.trim() === '') {
+        return errorResponse('내용은 필수입니다.', 400)
+      }
     }
 
     const notice = await prisma.notice.create({
@@ -104,18 +117,15 @@ export async function POST(request: NextRequest) {
         category: category || 'GENERAL',
         isPublished: isPublished ?? true,
         isPinned: isPinned ?? false,
-        authorId: session.user.id,
-        authorName: session.user.name || '관리자',
+        authorId: user.id,
+        authorName: user.name || '관리자',
         ...fileData,
       },
     })
 
-    return NextResponse.json(notice)
+    return successResponse(notice, 201)
   } catch (error) {
     console.error('Failed to create notice:', error)
-    return NextResponse.json(
-      { error: '공지사항 등록 중 오류가 발생했습니다.' },
-      { status: 500 }
-    )
+    return errorResponse('공지사항 등록 중 오류가 발생했습니다.', 500)
   }
-}
+})

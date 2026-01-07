@@ -1,16 +1,20 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../lib/auth'
 import { prisma } from '@pointedu/database'
+import { withAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
 
-// GET - Get single quote
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// GET - 견적 상세 조회 (인증 필요)
+export const GET = withAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         request: {
           include: {
@@ -22,17 +26,17 @@ export async function GET(
     })
 
     if (!quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+      return errorResponse('견적을 찾을 수 없습니다.', 404)
     }
 
-    return NextResponse.json(quote)
+    return successResponse(quote)
   } catch (error) {
     console.error('Failed to fetch quote:', error)
-    return NextResponse.json({ error: 'Failed to fetch quote' }, { status: 500 })
+    return errorResponse('견적 정보를 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// PATCH - Update quote
+// PATCH - 견적 수정 (관리자 전용 - 수동 인증 유지)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -57,7 +61,7 @@ export async function PATCH(
     } = body
 
     // Recalculate totals if fee fields are updated
-    let updateData: any = { notes }
+    let updateData: Record<string, unknown> = { notes }
 
     if (status) {
       updateData.status = status
@@ -107,7 +111,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete quote
+// DELETE - 견적 삭제 (관리자 전용 - 수동 인증 유지)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

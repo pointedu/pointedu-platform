@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import {
   CloudArrowUpIcon,
-  CloudArrowDownIcon,
   TrashIcon,
   ArrowPathIcon,
   CheckCircleIcon,
@@ -63,7 +62,7 @@ export default function BackupManager() {
       } else {
         setMessage({ type: 'error', text: data.error || '백업 생성 실패' })
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: '백업 생성 중 오류가 발생했습니다.' })
     } finally {
       setCreating(false)
@@ -85,14 +84,9 @@ export default function BackupManager() {
         const data = await res.json()
         setMessage({ type: 'error', text: data.error || '삭제 실패' })
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: '삭제 중 오류가 발생했습니다.' })
     }
-  }
-
-  const downloadBackup = (filename: string) => {
-    // In production, this would be an actual download endpoint
-    window.open(`/api/backup/download?filename=${encodeURIComponent(filename)}`, '_blank')
   }
 
   const formatDate = (dateString: string) => {

@@ -56,7 +56,7 @@ export async function GET() {
 }
 
 // POST - 새 백업 생성
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !['ADMIN', 'SUPER_ADMIN'].includes(session.user?.role as string)) {

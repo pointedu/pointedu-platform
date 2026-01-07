@@ -58,7 +58,7 @@ async function getInstructorPayments(userId: string): Promise<{
       where: {
         instructorId: instructor.id,
         status: {
-          in: ['APPROVED', 'PROCESSING', 'PAID'],
+          in: ['PENDING', 'CALCULATED', 'APPROVED', 'PROCESSING', 'PAID'],
         },
       },
       include: {

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const availableSubjects = [
@@ -20,7 +19,6 @@ const availableSubjects = [
 const availableDays = ['월', '화', '수', '목', '금', '토']
 
 export default function RegisterPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)

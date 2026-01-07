@@ -14,6 +14,10 @@ import {
 import FormModal from '../../components/FormModal'
 import Modal from '../../components/Modal'
 import PaymentStatement from './PaymentStatement'
+import ExportButton from '../../components/ExportButton'
+import { exportToExcel, paymentExcelConfig } from '../../lib/excel'
+import ResponsiveList from '../../components/ResponsiveList'
+import PaymentCard from '../../components/cards/PaymentCard'
 
 interface Payment {
   id: string
@@ -94,7 +98,7 @@ const nextStatusLabel: Record<string, string> = {
 
 export default function PaymentList({ initialPayments, summary }: PaymentListProps) {
   const router = useRouter()
-  const [payments, setPayments] = useState(initialPayments)
+  const [payments, _setPayments] = useState(initialPayments)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
@@ -180,7 +184,7 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
             '정산서 이미지를 캡처하여 카카오톡으로 전송해주세요.'
           )
         }
-      } catch (error) {
+      } catch (_error) {
         alert(
           '카카오톡 알림톡 발송 기능이 준비중입니다.\n\n' +
           '현재는 정산서를 인쇄하여 직접 전달하거나,\n' +
@@ -258,6 +262,28 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
     setIsDetailOpen(true)
   }
 
+  const handleExportExcel = () => {
+    const exportData = payments.map(payment => ({
+      instructorName: payment.instructor.name,
+      schoolName: payment.assignment.request.school.name,
+      programName: payment.assignment.request.program?.name || payment.assignment.request.customProgram || '',
+      classDate: payment.assignment.scheduledDate || '',
+      sessions: payment.sessions,
+      instructorFee: payment.sessionFee,
+      transportFee: payment.transportFee,
+      totalAmount: payment.subtotal,
+      netAmount: payment.netAmount,
+      statusLabel: statusLabels[payment.status] || payment.status,
+      paidAt: payment.paidAt || '',
+    }))
+    exportToExcel({
+      filename: '정산목록',
+      sheetName: '정산',
+      columns: paymentExcelConfig,
+      data: exportData,
+    })
+  }
+
   return (
     <>
       {/* Summary Cards */}
@@ -286,6 +312,11 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
         </div>
       </div>
 
+      {/* Export Button */}
+      <div className="mb-4 flex justify-end">
+        <ExportButton onClick={handleExportExcel} />
+      </div>
+
       {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <div className="mb-4 flex items-center gap-4 rounded-lg bg-blue-50 p-4">
@@ -307,125 +338,149 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
         </div>
       )}
 
-      <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                <input
-                  type="checkbox"
-                  checked={
-                    selectedIds.length > 0 &&
-                    selectedIds.length ===
-                      payments.filter((p) => ['PENDING', 'CALCULATED'].includes(p.status)).length
-                  }
-                  onChange={toggleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                정산번호
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                강사
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                학교
-              </th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
-                총액
-              </th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
-                실수령액
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                상태
-              </th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
-                작업
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <ResponsiveList
+        mobileView={
+          <div className="space-y-4">
             {payments.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-12 text-center">
-                  <CurrencyDollarIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-semibold text-gray-900">정산 내역이 없습니다</h3>
-                </td>
-              </tr>
+              <div className="py-12 text-center bg-white rounded-xl shadow-sm">
+                <CurrencyDollarIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-semibold text-gray-900">정산 내역이 없습니다</h3>
+              </div>
             ) : (
               payments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                    {['PENDING', 'CALCULATED'].includes(payment.status) && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(payment.id)}
-                        onChange={() => toggleSelection(payment.id)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
-                    {payment.paymentNumber}
-                    <div className="text-xs text-gray-500">{payment.accountingMonth}</div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {payment.instructor.name}
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-900">
-                    {payment.assignment.request.school.name}
-                    <div className="text-xs text-gray-500">{payment.sessions}차시</div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-right text-gray-900">
-                    {Number(payment.subtotal).toLocaleString()}원
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-right font-semibold text-gray-900">
-                    {Number(payment.netAmount).toLocaleString()}원
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[payment.status]}`}
-                    >
-                      {statusLabels[payment.status]}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
-                    <button
-                      onClick={() => openDetail(payment)}
-                      className="text-blue-600 hover:text-blue-900 mr-2"
-                    >
-                      상세
-                    </button>
-                    <button
-                      onClick={() => openStatement(payment)}
-                      className="text-purple-600 hover:text-purple-900 mr-2"
-                      title="정산서 보기"
-                    >
-                      <DocumentTextIcon className="h-4 w-4 inline" />
-                    </button>
-                    {nextStatus[payment.status] && (
-                      <button
-                        onClick={() => handleStatusChange(payment.id, nextStatus[payment.status])}
-                        disabled={loading === payment.id}
-                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-900 disabled:opacity-50"
-                      >
-                        {loading === payment.id ? (
-                          <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircleIcon className="h-4 w-4" />
-                        )}
-                        {nextStatusLabel[payment.status]}
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                <PaymentCard
+                  key={payment.id}
+                  payment={payment}
+                  onSelect={() => openDetail(payment)}
+                  onStatusChange={(status) => handleStatusChange(payment.id, status)}
+                  onStatement={() => openStatement(payment)}
+                  loading={loading === payment.id}
+                />
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        }
+      >
+        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-300">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedIds.length > 0 &&
+                      selectedIds.length ===
+                        payments.filter((p) => ['PENDING', 'CALCULATED'].includes(p.status)).length
+                    }
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  정산번호
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  강사
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  학교
+                </th>
+                <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
+                  총액
+                </th>
+                <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
+                  실수령액
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  상태
+                </th>
+                <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
+                  작업
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {payments.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center">
+                    <CurrencyDollarIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">정산 내역이 없습니다</h3>
+                  </td>
+                </tr>
+              ) : (
+                payments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-gray-50">
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                      {['PENDING', 'CALCULATED'].includes(payment.status) && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(payment.id)}
+                          onChange={() => toggleSelection(payment.id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
+                      {payment.paymentNumber}
+                      <div className="text-xs text-gray-500">{payment.accountingMonth}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {payment.instructor.name}
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-900">
+                      {payment.assignment.request.school.name}
+                      <div className="text-xs text-gray-500">{payment.sessions}차시</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-right text-gray-900">
+                      {Number(payment.subtotal).toLocaleString()}원
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-right font-semibold text-gray-900">
+                      {Number(payment.netAmount).toLocaleString()}원
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[payment.status]}`}
+                      >
+                        {statusLabels[payment.status]}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
+                      <button
+                        onClick={() => openDetail(payment)}
+                        className="text-blue-600 hover:text-blue-900 mr-2"
+                      >
+                        상세
+                      </button>
+                      <button
+                        onClick={() => openStatement(payment)}
+                        className="text-purple-600 hover:text-purple-900 mr-2"
+                        title="정산서 보기"
+                      >
+                        <DocumentTextIcon className="h-4 w-4 inline" />
+                      </button>
+                      {nextStatus[payment.status] && (
+                        <button
+                          onClick={() => handleStatusChange(payment.id, nextStatus[payment.status])}
+                          disabled={loading === payment.id}
+                          className="inline-flex items-center gap-1 text-green-600 hover:text-green-900 disabled:opacity-50"
+                        >
+                          {loading === payment.id ? (
+                            <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircleIcon className="h-4 w-4" />
+                          )}
+                          {nextStatusLabel[payment.status]}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </ResponsiveList>
 
       {/* Detail Modal */}
       <FormModal

@@ -2,6 +2,7 @@ import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@pointedu/database'
 import bcrypt from 'bcryptjs'
+import { logger } from './logger'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -48,6 +49,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
           }
         } catch (error) {
+          logger.error('Login error:', error)
           if (error instanceof Error) {
             throw error
           }

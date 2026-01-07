@@ -9,7 +9,6 @@ import {
   PencilIcon,
   TrashIcon,
   EyeIcon,
-  EyeSlashIcon,
   DocumentTextIcon,
   ExclamationCircleIcon,
   CalendarDaysIcon,

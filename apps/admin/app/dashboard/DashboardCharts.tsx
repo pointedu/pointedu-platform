@@ -1,5 +1,11 @@
 'use client'
 
+import { useState } from 'react'
+import {
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts'
+
 interface ChartData {
   monthlyRequests: { month: string; count: number }[]
   monthlyPayments: { month: string; amount: number }[]
@@ -7,107 +13,210 @@ interface ChartData {
   programStats: { name: string; count: number }[]
 }
 
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { name: string } }> }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-2 border border-gray-200 rounded shadow-sm">
+        <p className="text-sm font-medium">{payload[0].payload.name}</p>
+        <p className="text-sm text-gray-600">{payload[0].value}건</p>
+      </div>
+    )
+  }
+  return null
+}
+
+const formatAmount = (value: number) => {
+  if (value >= 10000) {
+    return `${(value / 10000).toFixed(0)}만`
+  }
+  return value.toString()
+}
+
 export default function DashboardCharts({ data }: { data: ChartData }) {
-  const maxRequests = Math.max(...data.monthlyRequests.map((m) => m.count), 1)
-  const maxPayments = Math.max(...data.monthlyPayments.map((m) => m.amount), 1)
-  const maxInstructor = Math.max(...data.instructorStats.map((i) => i.count), 1)
-  const maxProgram = Math.max(...data.programStats.map((p) => p.count), 1)
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments'>('requests')
+
+  const totalRequests = data.programStats.reduce((sum, item) => sum + item.count, 0)
+
+  const rawPieData = data.programStats.slice(0, 5).map((item, index) => ({
+    name: item.name,
+    shortName: item.name.length > 8 ? item.name.slice(0, 8) + '...' : item.name,
+    value: item.count,
+    color: COLORS[index],
+  }))
+
+  if (data.programStats.length > 5) {
+    const otherCount = data.programStats.slice(5).reduce((sum, item) => sum + item.count, 0)
+    if (otherCount > 0) {
+      rawPieData.push({
+        name: '기타',
+        shortName: '기타',
+        value: otherCount,
+        color: COLORS[5],
+      })
+    }
+  }
+
+  const pieData = rawPieData.filter(item => item.value > 0)
 
   return (
-    <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {/* Monthly Requests Chart */}
+    <div className="mt-8 space-y-6">
+      {/* Monthly Trend Chart with Tabs */}
       <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">월별 요청 현황</h3>
-        <div className="space-y-3">
-          {data.monthlyRequests.map((item) => (
-            <div key={item.month} className="flex items-center gap-3">
-              <span className="w-12 text-sm text-gray-500">{item.month}</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full flex items-center justify-end pr-2"
-                  style={{ width: `${Math.max((item.count / maxRequests) * 100, 8)}%` }}
-                >
-                  <span className="text-xs font-medium text-white">{item.count}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">월별 추이</h3>
+          <div className="flex rounded-lg bg-gray-100 p-1">
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'requests'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              요청
+            </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'payments'
+                  ? 'bg-white text-green-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              정산
+            </button>
+          </div>
         </div>
-        {data.monthlyRequests.length === 0 && (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            {activeTab === 'requests' ? (
+              <AreaChart data={data.monthlyRequests}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#3B82F6"
+                  fill="#93C5FD"
+                  name="요청 건수"
+                />
+              </AreaChart>
+            ) : (
+              <AreaChart data={data.monthlyPayments}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={formatAmount} />
+                <Tooltip formatter={(value: number) => [`${value.toLocaleString()}원`, '정산액']} />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="#10B981"
+                  fill="#6EE7B7"
+                  name="정산액"
+                />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+        {((activeTab === 'requests' && data.monthlyRequests.length === 0) ||
+          (activeTab === 'payments' && data.monthlyPayments.length === 0)) && (
           <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
         )}
       </div>
 
-      {/* Monthly Payments Chart */}
-      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">월별 정산 현황</h3>
-        <div className="space-y-3">
-          {data.monthlyPayments.map((item) => (
-            <div key={item.month} className="flex items-center gap-3">
-              <span className="w-12 text-sm text-gray-500">{item.month}</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full flex items-center justify-end pr-2"
-                  style={{ width: `${Math.max((item.amount / maxPayments) * 100, 8)}%` }}
-                >
-                  <span className="text-xs font-medium text-white">
-                    {(item.amount / 10000).toFixed(0)}만원
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Instructor Performance Chart */}
+        <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">강사별 수업 현황</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.instructorStats.slice(0, 5)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis type="number" tick={{ fontSize: 12 }} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fontSize: 12 }}
+                  width={60}
+                />
+                <Tooltip />
+                <Bar dataKey="count" fill="#8B5CF6" name="수업 수" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {data.instructorStats.length === 0 && (
+            <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
+          )}
         </div>
-        {data.monthlyPayments.length === 0 && (
-          <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
-        )}
+
+        {/* Program Distribution Pie Chart */}
+        <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">프로그램별 요청 현황</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="35%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  dataKey="value"
+                  nameKey="shortName"
+                  label={false}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  layout="vertical"
+                  align="right"
+                  verticalAlign="middle"
+                  formatter={(value: string, entry: { payload?: { name?: string; value?: number } }) => {
+                    const item = entry.payload
+                    if (item && totalRequests > 0) {
+                      const percent = ((item.value || 0) / totalRequests * 100).toFixed(0)
+                      return `${value} (${percent}%)`
+                    }
+                    return value
+                  }}
+                  wrapperStyle={{ fontSize: '12px', paddingLeft: '10px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          {pieData.length === 0 && (
+            <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
+          )}
+        </div>
       </div>
 
-      {/* Instructor Performance */}
-      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">강사별 수업 현황</h3>
-        <div className="space-y-3">
-          {data.instructorStats.slice(0, 5).map((item, index) => (
-            <div key={item.name} className="flex items-center gap-3">
-              <span className="w-6 text-sm font-medium text-gray-400">{index + 1}</span>
-              <span className="w-20 text-sm text-gray-700 truncate">{item.name}</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 rounded-full flex items-center justify-end pr-2"
-                  style={{ width: `${Math.max((item.count / maxInstructor) * 100, 8)}%` }}
-                >
-                  <span className="text-xs font-medium text-white">{item.count}회</span>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+          <p className="text-sm opacity-80">총 요청</p>
+          <p className="text-2xl font-bold">{totalRequests}건</p>
         </div>
-        {data.instructorStats.length === 0 && (
-          <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
-        )}
-      </div>
-
-      {/* Program Distribution */}
-      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">프로그램별 요청 현황</h3>
-        <div className="space-y-3">
-          {data.programStats.slice(0, 5).map((item) => (
-            <div key={item.name} className="flex items-center gap-3">
-              <span className="w-24 text-sm text-gray-700 truncate">{item.name}</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                <div
-                  className="h-full bg-yellow-500 rounded-full flex items-center justify-end pr-2"
-                  style={{ width: `${Math.max((item.count / maxProgram) * 100, 8)}%` }}
-                >
-                  <span className="text-xs font-medium text-white">{item.count}건</span>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+          <p className="text-sm opacity-80">총 정산</p>
+          <p className="text-2xl font-bold">
+            {formatAmount(data.monthlyPayments.reduce((sum, m) => sum + m.amount, 0))}원
+          </p>
         </div>
-        {data.programStats.length === 0 && (
-          <p className="text-center text-gray-500 py-4">데이터가 없습니다</p>
-        )}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+          <p className="text-sm opacity-80">활동 강사</p>
+          <p className="text-2xl font-bold">{data.instructorStats.length}명</p>
+        </div>
+        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 text-white">
+          <p className="text-sm opacity-80">프로그램 수</p>
+          <p className="text-2xl font-bold">{data.programStats.length}개</p>
+        </div>
       </div>
     </div>
   )

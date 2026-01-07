@@ -11,6 +11,10 @@ import {
   PhoneIcon,
 } from '@heroicons/react/24/outline'
 import FormModal from '../../components/FormModal'
+import ExportButton from '../../components/ExportButton'
+import ResponsiveList from '../../components/ResponsiveList'
+import SchoolCard from '../../components/cards/SchoolCard'
+import { exportToExcel, schoolExcelConfig } from '../../lib/excel'
 
 interface School {
   id: string
@@ -37,7 +41,7 @@ const schoolTypes = {
 
 export default function SchoolList({ initialSchools }: { initialSchools: School[] }) {
   const router = useRouter()
-  const [schools, setSchools] = useState(initialSchools)
+  const [schools, _setSchools] = useState(initialSchools)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
   const [loading, setLoading] = useState(false)
@@ -130,9 +134,27 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     }
   }
 
+  const handleExportExcel = () => {
+    const exportData = schools.map(school => ({
+      name: school.name,
+      address: school.address,
+      contactName: '',
+      contactPhone: school.phoneNumber,
+      contactEmail: school.email || '',
+      requestCount: school._count.requests,
+    }))
+    exportToExcel({
+      filename: '학교목록',
+      sheetName: '학교',
+      columns: schoolExcelConfig,
+      data: exportData,
+    })
+  }
+
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
+        <ExportButton onClick={handleExportExcel} />
         <button
           onClick={openCreateModal}
           className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
@@ -142,75 +164,97 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
         </button>
       </div>
 
-      <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">학교명</th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">유형</th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">지역</th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">연락처</th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">거리/교통비</th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">요청</th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">작업</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <ResponsiveList
+        mobileView={
+          <div className="space-y-4">
             {schools.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-12 text-center">
-                  <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 학교가 없습니다</h3>
-                </td>
-              </tr>
+              <div className="text-center py-12 text-gray-500">
+                <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 학교가 없습니다</h3>
+              </div>
             ) : (
               schools.map((school) => (
-                <tr key={school.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                    {school.name}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {schoolTypes[school.type as keyof typeof schoolTypes]}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    <span className="flex items-center gap-1">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                      {school.region}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    <span className="flex items-center gap-1">
-                      <PhoneIcon className="h-4 w-4 text-gray-400" />
-                      {school.phoneNumber}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {school.distanceKm ? `${school.distanceKm}km` : '-'} /
-                    {school.transportFee ? ` ${Number(school.transportFee).toLocaleString()}원` : ' -'}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {school._count.requests}건
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
-                    <button
-                      onClick={() => openEditModal(school)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(school.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
+                <SchoolCard
+                  key={school.id}
+                  school={school}
+                  onEdit={() => openEditModal(school)}
+                  onDelete={() => handleDelete(school.id)}
+                />
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        }
+      >
+        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-300">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">학교명</th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">유형</th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">지역</th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">연락처</th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">거리/교통비</th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">요청</th>
+                <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">작업</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {schools.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 학교가 없습니다</h3>
+                  </td>
+                </tr>
+              ) : (
+                schools.map((school) => (
+                  <tr key={school.id} className="hover:bg-gray-50">
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                      {school.name}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {schoolTypes[school.type as keyof typeof schoolTypes]}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      <span className="flex items-center gap-1">
+                        <MapPinIcon className="h-4 w-4 text-gray-400" />
+                        {school.region}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      <span className="flex items-center gap-1">
+                        <PhoneIcon className="h-4 w-4 text-gray-400" />
+                        {school.phoneNumber}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {school.distanceKm ? `${school.distanceKm}km` : '-'} /
+                      {school.transportFee ? ` ${Number(school.transportFee).toLocaleString()}원` : ' -'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {school._count.requests}건
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
+                      <button
+                        onClick={() => openEditModal(school)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(school.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </ResponsiveList>
 
       <FormModal
         isOpen={isModalOpen}

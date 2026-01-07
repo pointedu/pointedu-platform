@@ -4,7 +4,7 @@
  */
 
 import { Decimal } from 'decimal.js'
-import { prisma } from '@pointedu/database'
+import { prisma, Prisma } from '@pointedu/database'
 import { calculateTransportFee } from '../utils/distance'
 
 type InstructorAssignment = any
@@ -238,7 +238,7 @@ export async function autoGeneratePayment(
 }> {
   try {
     // 트랜잭션으로 배정 확인 및 정산 생성
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 배정 확인
       const assignment = await tx.instructorAssignment.findUnique({
         where: { id: assignmentId },

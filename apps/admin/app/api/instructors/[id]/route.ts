@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - Get single instructor
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { prisma } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
+
+// GET - 강사 상세 조회 (인증 필요)
+export const GET = withAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const instructor = await prisma.instructor.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: true,
         assignments: {
@@ -24,22 +27,22 @@ export async function GET(
     })
 
     if (!instructor) {
-      return NextResponse.json({ error: 'Instructor not found' }, { status: 404 })
+      return errorResponse('강사를 찾을 수 없습니다.', 404)
     }
 
-    return NextResponse.json(instructor)
+    return successResponse(instructor)
   } catch (error) {
     console.error('Failed to fetch instructor:', error)
-    return NextResponse.json({ error: 'Failed to fetch instructor' }, { status: 500 })
+    return errorResponse('강사 정보를 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// PUT - Update instructor
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PUT - 강사 수정 (관리자 전용)
+export const PUT = withAdminAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const body = await request.json()
     const {
       name,
@@ -66,7 +69,7 @@ export async function PUT(
     }
 
     const instructor = await prisma.instructor.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         phoneNumber,
@@ -92,7 +95,7 @@ export async function PUT(
 
     // 프론트엔드 호환을 위해 bankAccount를 분리해서 응답
     const bankParts = (instructor.bankAccount || '').split(' ')
-    return NextResponse.json({
+    return successResponse({
       ...instructor,
       bankName: bankParts[0] || '',
       accountNumber: bankParts[1] || '',
@@ -100,33 +103,33 @@ export async function PUT(
     })
   } catch (error) {
     console.error('Failed to update instructor:', error)
-    return NextResponse.json({ error: 'Failed to update instructor' }, { status: 500 })
+    return errorResponse('강사 수정에 실패했습니다.', 500)
   }
-}
+})
 
-// DELETE - Delete instructor
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// DELETE - 강사 삭제 (관리자 전용)
+export const DELETE = withAdminAuth(async (request, context) => {
   try {
+    const id = context?.params?.id
+    if (!id) return errorResponse('ID가 필요합니다.', 400)
+
     const instructor = await prisma.instructor.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!instructor) {
-      return NextResponse.json({ error: 'Instructor not found' }, { status: 404 })
+      return errorResponse('강사를 찾을 수 없습니다.', 404)
     }
 
     // Delete instructor (cascade will handle related records)
-    await prisma.instructor.delete({ where: { id: params.id } })
+    await prisma.instructor.delete({ where: { id } })
 
     // Delete user
     await prisma.user.delete({ where: { id: instructor.userId } })
 
-    return NextResponse.json({ message: 'Instructor deleted successfully' })
+    return successResponse({ message: '강사가 삭제되었습니다.' })
   } catch (error) {
     console.error('Failed to delete instructor:', error)
-    return NextResponse.json({ error: 'Failed to delete instructor' }, { status: 500 })
+    return errorResponse('강사 삭제에 실패했습니다.', 500)
   }
-}
+})

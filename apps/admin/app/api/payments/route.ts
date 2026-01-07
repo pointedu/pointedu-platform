@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - List all payments
-export async function GET() {
+import { prisma } from '@pointedu/database'
+import { withAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+
+// GET - 급여 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const payments = await prisma.payment.findMany({
       include: {
@@ -29,9 +32,9 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(payments)
+    return successResponse(payments)
   } catch (error) {
     console.error('Failed to fetch payments:', error)
-    return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 })
+    return errorResponse('급여 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})

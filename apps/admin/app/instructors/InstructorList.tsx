@@ -2,9 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import SearchFilter from '../../components/SearchFilter'
+import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
 import Modal from '../../components/Modal'
 import FormModal from '../../components/FormModal'
+import ExportButton from '../../components/ExportButton'
+import { exportToExcel, instructorExcelConfig } from '../../lib/excel'
+import ResponsiveList from '../../components/ResponsiveList'
+import InstructorCard from '../../components/cards/InstructorCard'
 import {
   UserIcon,
   PhoneIcon,
@@ -73,6 +77,7 @@ const filters = [
   {
     key: 'status',
     label: '상태',
+    multiple: true,
     options: [
       { value: 'PENDING', label: '승인대기' },
       { value: 'ACTIVE', label: '활동중' },
@@ -84,6 +89,7 @@ const filters = [
   {
     key: 'homeBase',
     label: '거주지',
+    multiple: true,
     options: [
       { value: '영주', label: '영주' },
       { value: '안동', label: '안동' },
@@ -103,6 +109,12 @@ const filters = [
   },
 ]
 
+const sortOptions = [
+  { key: 'name', label: '이름' },
+  { key: 'totalClasses', label: '수업수' },
+  { key: 'rating', label: '평점' },
+]
+
 const availableSubjects = [
   'AI/코딩',
   '드론',
@@ -120,7 +132,8 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   const [filteredInstructors, setFilteredInstructors] = useState(initialInstructors)
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({})
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})
+  const [currentSort, setCurrentSort] = useState<{ key: string; label: string; direction: 'asc' | 'desc' } | null>(null)
 
   // Form modal state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
@@ -140,7 +153,11 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     accountHolder: '',
   })
 
-  const applyFilters = (query: string, filters: Record<string, string>) => {
+  const applyFilters = (
+    query: string,
+    filters: Record<string, string[]>,
+    sort: { key: string; direction: 'asc' | 'desc' } | null = currentSort
+  ) => {
     let result = instructors
 
     if (query) {
@@ -153,16 +170,31 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       )
     }
 
-    if (filters.status) {
-      result = result.filter((i) => i.status === filters.status)
+    // 다중 선택 필터링
+    if (filters.status?.length > 0) {
+      result = result.filter((i) => filters.status.includes(i.status))
     }
 
-    if (filters.homeBase) {
-      result = result.filter((i) => i.homeBase.includes(filters.homeBase))
+    if (filters.homeBase?.length > 0) {
+      result = result.filter((i) => filters.homeBase.some(hb => i.homeBase.includes(hb)))
     }
 
-    if (filters.rangeKm) {
-      result = result.filter((i) => i.rangeKm === filters.rangeKm)
+    if (filters.rangeKm?.length > 0) {
+      result = result.filter((i) => filters.rangeKm.includes(i.rangeKm))
+    }
+
+    // 정렬 적용
+    if (sort) {
+      result = [...result].sort((a, b) => {
+        const aVal = a[sort.key as keyof Instructor]
+        const bVal = b[sort.key as keyof Instructor]
+        const modifier = sort.direction === 'asc' ? 1 : -1
+
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return aVal.localeCompare(bVal) * modifier
+        }
+        return ((Number(aVal) || 0) - (Number(bVal) || 0)) * modifier
+      })
     }
 
     setFilteredInstructors(result)
@@ -173,9 +205,14 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     applyFilters(query, activeFilters)
   }
 
-  const handleFilter = (filters: Record<string, string>) => {
+  const handleFilter = (filters: Record<string, string[]>) => {
     setActiveFilters(filters)
     applyFilters(searchQuery, filters)
+  }
+
+  const handleSort = (sort: { key: string; label: string; direction: 'asc' | 'desc' } | null) => {
+    setCurrentSort(sort)
+    applyFilters(searchQuery, activeFilters, sort)
   }
 
   const resetForm = () => {
@@ -310,155 +347,201 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     }))
   }
 
+  const handleExportExcel = () => {
+    const exportData = filteredInstructors.map(instructor => ({
+      ...instructor,
+      statusLabel: statusLabels[instructor.status as keyof typeof statusLabels] || instructor.status,
+      assignmentCount: instructor._count.assignments,
+      paymentCount: instructor._count.payments,
+    }))
+    exportToExcel({
+      filename: '강사목록',
+      sheetName: '강사',
+      columns: instructorExcelConfig,
+      data: exportData,
+    })
+  }
+
   return (
     <>
-      <div className="mb-4 flex justify-between items-center">
-        <SearchFilter
-          placeholder="강사명, 과목, 지역으로 검색..."
-          filters={filters}
-          onSearch={handleSearch}
-          onFilter={handleFilter}
-        />
-        <button
-          onClick={openCreateModal}
-          className="ml-4 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
-        >
-          <PlusIcon className="h-5 w-5" />
-          강사 등록
-        </button>
+      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start">
+        <div className="flex-1">
+          <AdvancedSearchFilter
+            placeholder="강사명, 과목, 지역으로 검색..."
+            filters={filters}
+            sortOptions={sortOptions}
+            onSearch={handleSearch}
+            onFilter={handleFilter}
+            onSort={handleSort}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={handleExportExcel} />
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+          >
+            <PlusIcon className="h-5 w-5" />
+            강사 등록
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                이름
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                거주지
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                전문 과목
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                활동 범위
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                가능 요일
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                배정/정산
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                상태
-              </th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
-                작업
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <ResponsiveList
+        mobileView={
+          <div className="space-y-4">
             {filteredInstructors.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-12 text-center text-gray-500">
-                  {instructors.length === 0
-                    ? '등록된 강사가 없습니다.'
-                    : '검색 결과가 없습니다.'}
-                </td>
-              </tr>
+              <div className="text-center py-12 text-gray-500">
+                {instructors.length === 0 ? '등록된 강사가 없습니다.' : '검색 결과가 없습니다.'}
+              </div>
             ) : (
               filteredInstructors.map((instructor) => (
-                <tr
+                <InstructorCard
                   key={instructor.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setSelectedInstructor(instructor)}
-                >
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                    {instructor.name}
-                    <div className="text-xs text-gray-500">{instructor.phoneNumber}</div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {instructor.homeBase}
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-900">
-                    <div className="max-w-xs truncate">
-                      {instructor.subjects.join(', ')}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {instructor.rangeKm}km
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {instructor.availableDays.join(', ')}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
-                    {instructor._count.assignments}건 / {instructor._count.payments}건
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                        statusColors[instructor.status as keyof typeof statusColors] ||
-                        'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {statusLabels[instructor.status as keyof typeof statusLabels] ||
-                        instructor.status}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
-                    {instructor.status === 'PENDING' ? (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleApprove(instructor.id)
-                          }}
-                          className="text-green-600 hover:text-green-900 mr-2"
-                          title="승인"
-                        >
-                          <CheckIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleReject(instructor.id)
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                          title="거절"
-                        >
-                          <XMarkIcon className="h-5 w-5" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openEditModal(instructor)
-                          }}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(instructor.id)
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+                  instructor={instructor}
+                  onSelect={() => setSelectedInstructor(instructor)}
+                  onEdit={() => openEditModal(instructor)}
+                  onDelete={() => handleDelete(instructor.id)}
+                  onApprove={() => handleApprove(instructor.id)}
+                  onReject={() => handleReject(instructor.id)}
+                />
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        }
+      >
+        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-300">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                  이름
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  거주지
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  전문 과목
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  활동 범위
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  가능 요일
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  배정/정산
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  상태
+                </th>
+                <th className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
+                  작업
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredInstructors.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-gray-500">
+                    {instructors.length === 0
+                      ? '등록된 강사가 없습니다.'
+                      : '검색 결과가 없습니다.'}
+                  </td>
+                </tr>
+              ) : (
+                filteredInstructors.map((instructor) => (
+                  <tr
+                    key={instructor.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setSelectedInstructor(instructor)}
+                  >
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                      {instructor.name}
+                      <div className="text-xs text-gray-500">{instructor.phoneNumber}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {instructor.homeBase}
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-900">
+                      <div className="max-w-xs truncate">
+                        {instructor.subjects.join(', ')}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {instructor.rangeKm}km
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {instructor.availableDays.join(', ')}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                      {instructor._count.assignments}건 / {instructor._count.payments}건
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          statusColors[instructor.status as keyof typeof statusColors] ||
+                          'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {statusLabels[instructor.status as keyof typeof statusLabels] ||
+                          instructor.status}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
+                      {instructor.status === 'PENDING' ? (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleApprove(instructor.id)
+                            }}
+                            className="text-green-600 hover:text-green-900 mr-2"
+                            title="승인"
+                          >
+                            <CheckIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleReject(instructor.id)
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                            title="거절"
+                          >
+                            <XMarkIcon className="h-5 w-5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEditModal(instructor)
+                            }}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(instructor.id)
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </ResponsiveList>
 
       {/* Detail Modal */}
       <Modal

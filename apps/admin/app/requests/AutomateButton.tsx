@@ -22,7 +22,7 @@ export default function AutomateButton({ requestId }: { requestId: string }) {
           window.location.reload()
         }, 2000)
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('오류가 발생했습니다.')
     } finally {
       setLoading(false)

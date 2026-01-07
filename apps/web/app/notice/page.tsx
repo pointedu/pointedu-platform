@@ -3,7 +3,9 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@pointedu/database'
 import Link from 'next/link'
 
-async function getNotices() {
+type NoticeType = Awaited<ReturnType<typeof prisma.notice.findMany>>[number]
+
+async function getNotices(): Promise<NoticeType[]> {
   try {
     const notices = await prisma.notice.findMany({
       where: { isPublished: true },

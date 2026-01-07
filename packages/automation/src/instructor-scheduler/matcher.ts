@@ -3,7 +3,7 @@
  * 학교 요청에 최적의 강사를 자동으로 배정
  */
 
-import { prisma } from '@pointedu/database'
+import { prisma, Prisma } from '@pointedu/database'
 import { canInstructorTravel } from '../utils/distance'
 
 type Instructor = any
@@ -302,7 +302,7 @@ export async function autoAssignInstructor(requestId: string): Promise<{
     }
 
     // 트랜잭션으로 배정 생성 및 요청 상태 업데이트
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 배정 생성
       const assignment = await tx.instructorAssignment.create({
         data: {

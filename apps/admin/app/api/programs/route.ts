@@ -1,8 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@pointedu/database'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-// GET - List all programs
-export async function GET() {
+import { prisma, ProgramCategory } from '@pointedu/database'
+import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
+import { validateBody } from '../../../lib/validations'
+import { z } from 'zod'
+
+// 프로그램 생성 스키마 (실제 DB 필드에 맞춤)
+const programSchema = z.object({
+  code: z.string().optional(),
+  name: z.string().min(1, '프로그램명은 필수입니다.'),
+  category: z.string().optional(),
+  description: z.string().optional(),
+  targetGrades: z.array(z.string()).optional(),
+  minStudents: z.number().optional(),
+  maxStudents: z.union([z.string(), z.number()]).optional(),
+  sessionCount: z.number().optional(),
+  sessionMinutes: z.number().optional(),
+  duration: z.union([z.string(), z.number()]).optional(),
+  baseMaterialCost: z.union([z.string(), z.number()]).optional(),
+  baseSessionFee: z.union([z.string(), z.number()]).optional(),
+  basePrice: z.union([z.string(), z.number()]).optional(),
+  difficulty: z.number().optional(),
+})
+
+// GET - 프로그램 목록 조회 (인증 필요)
+export const GET = withAuth(async () => {
   try {
     const programs = await prisma.program.findMany({
       include: {
@@ -18,21 +41,29 @@ export async function GET() {
     // 프론트엔드 호환을 위해 필드명 변환
     const formattedPrograms = programs.map((program) => ({
       ...program,
-      duration: program.sessionMinutes,  // sessionMinutes → duration
-      basePrice: program.baseSessionFee,  // baseSessionFee → basePrice
+      duration: program.sessionMinutes,
+      basePrice: program.baseSessionFee,
     }))
 
-    return NextResponse.json(formattedPrograms)
+    return successResponse(formattedPrograms)
   } catch (error) {
     console.error('Failed to fetch programs:', error)
-    return NextResponse.json({ error: 'Failed to fetch programs' }, { status: 500 })
+    return errorResponse('프로그램 목록을 불러오는데 실패했습니다.', 500)
   }
-}
+})
 
-// POST - Create new program
-export async function POST(request: NextRequest) {
+// POST - 프로그램 생성 (관리자 전용 + 입력 검증)
+export const POST = withAdminAuth(async (request) => {
   try {
     const body = await request.json()
+
+    // 입력 검증
+    const validation = validateBody(programSchema, body)
+    if (!validation.success) {
+      return errorResponse(validation.error, 400)
+    }
+
+    const data = validation.data
     const {
       code,
       name,
@@ -43,12 +74,12 @@ export async function POST(request: NextRequest) {
       maxStudents,
       sessionCount,
       sessionMinutes,
-      duration,  // 프론트엔드 호환
+      duration,
       baseMaterialCost,
       baseSessionFee,
-      basePrice,  // 프론트엔드 호환
+      basePrice,
       difficulty,
-    } = body
+    } = data
 
     // code가 없으면 자동 생성 (PRG + timestamp)
     const programCode = code || `PRG${Date.now()}`
@@ -57,23 +88,23 @@ export async function POST(request: NextRequest) {
       data: {
         code: programCode,
         name,
-        category: category || 'CAREER',
+        category: (category as ProgramCategory) || 'CAREER',
         description: description || '',
         targetGrades: targetGrades || [],
         minStudents: minStudents || 15,
-        maxStudents: maxStudents ? parseInt(maxStudents) : 30,
+        maxStudents: maxStudents ? parseInt(String(maxStudents)) : 30,
         sessionCount: sessionCount || 2,
-        sessionMinutes: sessionMinutes || (duration ? parseInt(duration) : 45),
-        baseMaterialCost: baseMaterialCost ? parseFloat(baseMaterialCost) : null,
-        baseSessionFee: baseSessionFee ? parseFloat(baseSessionFee) : (basePrice ? parseFloat(basePrice) : null),
+        sessionMinutes: sessionMinutes || (duration ? parseInt(String(duration)) : 45),
+        baseMaterialCost: baseMaterialCost ? parseFloat(String(baseMaterialCost)) : null,
+        baseSessionFee: baseSessionFee ? parseFloat(String(baseSessionFee)) : (basePrice ? parseFloat(String(basePrice)) : null),
         difficulty: difficulty || 3,
         active: true,
       },
     })
 
-    return NextResponse.json(program, { status: 201 })
+    return successResponse(program, 201)
   } catch (error) {
     console.error('Failed to create program:', error)
-    return NextResponse.json({ error: 'Failed to create program' }, { status: 500 })
+    return errorResponse('프로그램 생성에 실패했습니다.', 500)
   }
-}
+})

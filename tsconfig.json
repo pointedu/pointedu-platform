@@ -20,7 +20,8 @@
       "@pointedu/ui": ["./packages/ui/src"],
       "@pointedu/database": ["./packages/database/src"],
       "@pointedu/api": ["./packages/api/src"],
-      "@pointedu/utils": ["./packages/utils/src"]
+      "@pointedu/utils": ["./packages/utils/src"],
+      "@pointedu/automation": ["./packages/automation/src"]
     }
   },
   "exclude": ["node_modules", "dist", ".turbo", ".next", "build"],

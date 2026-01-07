@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
+import dynamicImport from 'next/dynamic'
 import {
   DocumentTextIcon,
   UserGroupIcon,
@@ -8,7 +9,19 @@ import {
   CheckCircleIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline'
-import DashboardCharts from './DashboardCharts'
+
+const DashboardCharts = dynamicImport(() => import('./DashboardCharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="mt-8 animate-pulse">
+      <div className="h-8 bg-gray-200 rounded w-32 mb-4"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-gray-100 rounded-xl h-80"></div>
+        <div className="bg-gray-100 rounded-xl h-80"></div>
+      </div>
+    </div>
+  ),
+})
 
 async function getDashboardStats() {
   try {
