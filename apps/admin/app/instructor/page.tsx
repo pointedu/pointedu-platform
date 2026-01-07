@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+export const revalidate = 60 // Revalidate every 60 seconds
 
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../lib/auth'

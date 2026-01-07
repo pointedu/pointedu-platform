@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+export const revalidate = 60 // Revalidate every 60 seconds
 
 import { prisma } from '@pointedu/database'
 import RequestList from './RequestList'

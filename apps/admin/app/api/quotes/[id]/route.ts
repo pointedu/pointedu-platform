@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
