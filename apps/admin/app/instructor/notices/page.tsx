@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import NoticeView from './NoticeView'
+import { serializeDecimalArray } from '../../../lib/utils'
 
 async function getNotices() {
   try {
@@ -15,15 +16,30 @@ async function getNotices() {
       ],
       take: 50,
     })
-    return notices
+    return serializeDecimalArray(notices)
   } catch (error) {
     console.error('Failed to fetch notices:', error)
     return []
   }
 }
 
+interface Notice {
+  id: string
+  title: string
+  content: string
+  category: string
+  isPinned: boolean
+  viewCount: number
+  authorName: string
+  fileName?: string | null
+  fileSize?: number | null
+  filePath?: string | null
+  createdAt: string
+}
+
 export default async function InstructorNoticesPage() {
-  const notices = await getNotices()
+  const rawNotices = await getNotices()
+  const notices = rawNotices as unknown as Notice[]
 
   return (
     <div>
@@ -34,7 +50,7 @@ export default async function InstructorNoticesPage() {
         </p>
       </div>
 
-      <NoticeView notices={notices as any} />
+      <NoticeView notices={notices} />
     </div>
   )
 }

@@ -523,7 +523,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                         {request.school.name}
                         <div className="text-xs text-gray-500">
                           {request.school.region}
-                          {request.school.distanceKm && ` (${request.school.distanceKm}km)`}
+                          {Number(request.school.distanceKm || 0) > 0 && ` (${request.school.distanceKm}km)`}
                         </div>
                       </td>
                       <td className="px-3 py-4 text-sm text-gray-900">
@@ -797,7 +797,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                   <p className="text-gray-500">지역</p>
                   <p className="font-medium">{detailRequest.school.region}</p>
                 </div>
-                {detailRequest.school.distanceKm && (
+                {Number(detailRequest.school.distanceKm || 0) > 0 && (
                   <div>
                     <p className="text-gray-500">거리</p>
                     <p className="font-medium">{detailRequest.school.distanceKm}km</p>

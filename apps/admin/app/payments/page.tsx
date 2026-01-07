@@ -4,6 +4,40 @@ import { prisma } from '@pointedu/database'
 import PaymentList from './PaymentList'
 import { serializeDecimalArray } from '../../lib/utils'
 
+interface Payment {
+  id: string
+  paymentNumber: string
+  accountingMonth: string
+  sessions: number
+  sessionFee: number
+  transportFee: number
+  bonus?: number
+  subtotal: number
+  taxWithholding: number
+  deductions?: number
+  netAmount: number
+  status: string
+  paidAt?: string | null
+  instructor: {
+    id: string
+    name: string
+    phoneNumber?: string | null
+    bankName?: string | null
+    accountNumber?: string | null
+    bankAccount?: string | null
+    residentNumber?: string | null
+  }
+  assignment: {
+    scheduledDate?: string | null
+    request: {
+      school: { name: string }
+      program?: { name: string } | null
+      customProgram?: string | null
+      sessions: number
+    }
+  }
+}
+
 async function getPayments() {
   try {
     const payments = await prisma.payment.findMany({
@@ -32,14 +66,15 @@ async function getPayments() {
 }
 
 export default async function PaymentsPage() {
-  const payments = await getPayments()
+  const rawPayments = await getPayments()
+  const payments = rawPayments as unknown as Payment[]
 
   const summary = {
     total: payments.length,
-    pending: payments.filter((p: any) => ['PENDING', 'CALCULATED'].includes(p.status)).length,
-    approved: payments.filter((p: any) => p.status === 'APPROVED').length,
-    paid: payments.filter((p: any) => p.status === 'PAID').length,
-    totalAmount: payments.reduce((sum: number, p: any) => sum + Number(p.netAmount || 0), 0),
+    pending: payments.filter((p) => ['PENDING', 'CALCULATED'].includes(p.status)).length,
+    approved: payments.filter((p) => p.status === 'APPROVED').length,
+    paid: payments.filter((p) => p.status === 'PAID').length,
+    totalAmount: payments.reduce((sum, p) => sum + Number(p.netAmount || 0), 0),
   }
 
   return (
@@ -53,7 +88,7 @@ export default async function PaymentsPage() {
         </div>
       </div>
 
-      <PaymentList initialPayments={payments as any} summary={summary} />
+      <PaymentList initialPayments={payments} summary={summary} />
     </div>
   )
 }

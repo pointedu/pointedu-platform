@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/alt-text */
 import {
   Document,
   Page,
@@ -250,6 +251,7 @@ export default function QuotePDF({ data }: { data: QuoteData }) {
       <Page size="A4" style={styles.page}>
         {/* 헤더 */}
         <View style={styles.header}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image style={styles.logo} src={path.join(process.cwd(), 'public', 'images', 'pointedu-logo.png')} />
           <View>
             <Text style={styles.title}>견 적 서</Text>

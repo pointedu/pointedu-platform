@@ -54,11 +54,39 @@ async function getStats() {
   }
 }
 
+interface Application {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  message: string | null
+  reviewedBy: string | null
+  reviewedAt: string | null
+  reviewNote: string | null
+  createdAt: string
+  instructor: {
+    id: string
+    name: string
+    email: string | null
+    phoneNumber: string
+    subjects: string[]
+    homeBase: string
+  }
+  request: {
+    id: string
+    requestNumber: string
+    desiredDate: string
+    sessions: number
+    studentCount: number
+    school: { name: string; address: string }
+    program: { name: string } | null
+  }
+}
+
 export default async function ApplicationsPage() {
-  const [applications, stats] = await Promise.all([
+  const [rawApplications, stats] = await Promise.all([
     getApplications(),
     getStats()
   ])
+  const applications = rawApplications as unknown as Application[]
 
   return (
     <div>
@@ -89,7 +117,7 @@ export default async function ApplicationsPage() {
         </div>
       </div>
 
-      <ApplicationList initialApplications={applications as any} />
+      <ApplicationList initialApplications={applications} />
     </div>
   )
 }

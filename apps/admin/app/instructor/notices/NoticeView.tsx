@@ -175,9 +175,9 @@ export default function NoticeView({ notices }: NoticeViewProps) {
                     >
                       <PaperClipIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-sm text-gray-700">{selectedNotice.fileName}</span>
-                      {selectedNotice.fileSize && (
+                      {Number(selectedNotice.fileSize || 0) > 0 && (
                         <span className="text-xs text-gray-500">
-                          ({formatFileSize(selectedNotice.fileSize)})
+                          ({formatFileSize(Number(selectedNotice.fileSize || 0))})
                         </span>
                       )}
                       <ArrowDownTrayIcon className="h-4 w-4 text-blue-600" />

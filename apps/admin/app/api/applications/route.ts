@@ -4,7 +4,7 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../lib/auth'
-import { prisma } from '@pointedu/database'
+import { prisma, ApplicationStatus } from '@pointedu/database'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
+    const status = searchParams.get('status') as ApplicationStatus | null
     const requestId = searchParams.get('requestId')
 
-    const where: any = {}
+    const where: { status?: ApplicationStatus; requestId?: string } = {}
     if (status) where.status = status
     if (requestId) where.requestId = requestId
 

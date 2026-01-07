@@ -4,6 +4,20 @@ import { prisma } from '@pointedu/database'
 import ScheduleCalendar from './ScheduleCalendar'
 import { serializeDecimalArray } from '../../lib/utils'
 
+interface AssignmentData {
+  id: string
+  assignedDate: string
+  scheduledDate?: string | null
+  status: string
+  instructor: { id: string; name: string }
+  request: {
+    sessions: number
+    school: { id: string; name: string }
+    program?: { name: string } | null
+    customProgram?: string | null
+  }
+}
+
 async function getScheduleData() {
   try {
     const [assignments, schools, instructors] = await Promise.all([
@@ -36,14 +50,15 @@ async function getScheduleData() {
     ])
 
     // Serialize Decimal values for client component
+    const serializedAssignments = serializeDecimalArray(assignments)
     return {
-      assignments: serializeDecimalArray(assignments),
+      assignments: serializedAssignments as unknown as AssignmentData[],
       schools: serializeDecimalArray(schools),
       instructors: serializeDecimalArray(instructors),
     }
   } catch (error) {
     console.error('Failed to fetch schedule data:', error)
-    return { assignments: [], schools: [], instructors: [] }
+    return { assignments: [] as AssignmentData[], schools: [], instructors: [] }
   }
 }
 
@@ -51,15 +66,15 @@ export default async function SchedulePage() {
   const { assignments, schools, instructors } = await getScheduleData()
 
   // Transform assignments into schedule events
-  const events = assignments.map((assignment: any) => ({
+  const events = assignments.map((assignment) => ({
     id: assignment.id,
     title: `${assignment.request.school.name} - ${assignment.request.program?.name || assignment.request.customProgram}`,
-    date: assignment.assignedDate,
+    date: assignment.scheduledDate || assignment.assignedDate,
     instructor: assignment.instructor.name,
     instructorId: assignment.instructor.id,
     school: assignment.request.school.name,
     schoolId: assignment.request.school.id,
-    program: assignment.request.program?.name || assignment.request.customProgram,
+    program: assignment.request.program?.name || assignment.request.customProgram || '',
     sessions: assignment.request.sessions,
     status: assignment.status,
   }))
@@ -77,8 +92,8 @@ export default async function SchedulePage() {
 
       <ScheduleCalendar
         events={events}
-        schools={schools as any}
-        instructors={instructors as any}
+        schools={schools}
+        instructors={instructors}
       />
     </div>
   )

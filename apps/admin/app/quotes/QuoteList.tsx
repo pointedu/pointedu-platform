@@ -28,7 +28,7 @@ interface Quote {
     program?: { name: string } | null
     customProgram?: string | null
     sessions: number
-    studentsPerSession: number
+    studentCount: number
   }
 }
 
@@ -38,7 +38,7 @@ interface Request {
   program?: { name: string } | null
   customProgram?: string | null
   sessions: number
-  studentsPerSession: number
+  studentCount: number
   status: string
 }
 
@@ -222,7 +222,7 @@ export default function QuoteList({ initialQuotes, pendingRequests, transportSet
       <FormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingQuote ? '견적 수정' : '견적 작성'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           {!editingQuote && <div><label className="block text-sm font-medium text-gray-700">요청 선택 *</label><select required value={selectedRequest} onChange={(e) => setSelectedRequest(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"><option value="">요청을 선택하세요</option>{pendingRequests.map((req) => <option key={req.id} value={req.id}>{req.school.name} - {req.program?.name || req.customProgram} ({req.sessions}회)</option>)}</select></div>}
-          {editingQuote && <div className="p-4 bg-gray-50 rounded-lg"><p className="text-sm text-gray-600"><strong>{editingQuote.request.school.name}</strong> - {editingQuote.request.program?.name || editingQuote.request.customProgram}</p><p className="text-sm text-gray-500 mt-1">{editingQuote.request.sessions}회 × {editingQuote.request.studentsPerSession}명</p></div>}
+          {editingQuote && <div className="p-4 bg-gray-50 rounded-lg"><p className="text-sm text-gray-600"><strong>{editingQuote.request.school.name}</strong> - {editingQuote.request.program?.name || editingQuote.request.customProgram}</p><p className="text-sm text-gray-500 mt-1">{editingQuote.request.sessions}회 × {editingQuote.request.studentCount}명</p></div>}
           <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-gray-700">강사비 (원) *</label><input type="number" required value={formData.sessionFee} onChange={(e) => setFormData({ ...formData, sessionFee: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /></div><div><label className="block text-sm font-medium text-gray-700">강사-학교 거리 (km)</label><input type="number" placeholder="거리 입력 시 교통비 자동 계산" value={formData.distanceKm} onChange={(e) => handleDistanceChange(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /><p className="mt-1 text-xs text-gray-500">0-20km: {parseInt(settings.transport_0_20).toLocaleString()}원 | 20-40km: {parseInt(settings.transport_20_40).toLocaleString()}원 | 40-60km: {parseInt(settings.transport_40_60).toLocaleString()}원</p></div></div>
           <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-gray-700">교통비 (원)</label><input type="number" value={formData.transportFee} onChange={(e) => setFormData({ ...formData, transportFee: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /><p className="mt-1 text-xs text-gray-500">거리 입력 시 자동 계산됩니다.</p></div><div><label className="block text-sm font-medium text-gray-700">재료비 (원)</label><input type="number" value={formData.materialCost} onChange={(e) => setFormData({ ...formData, materialCost: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /></div></div>
           <div><label className="block text-sm font-medium text-gray-700">마진율 (%)</label><input type="number" value={formData.margin} onChange={(e) => setFormData({ ...formData, margin: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /></div>

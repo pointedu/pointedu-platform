@@ -21,8 +21,20 @@ async function getPrograms() {
   }
 }
 
+interface SerializedProgram {
+  id: string
+  name: string
+  category: string
+  description?: string | null
+  sessionMinutes?: number | null
+  maxStudents?: number | null
+  baseSessionFee?: number | null
+  active: boolean
+  _count: { requests: number }
+}
+
 export default async function ProgramsPage() {
-  const programs = await getPrograms()
+  const programs = await getPrograms() as SerializedProgram[]
 
   return (
     <div>
@@ -34,7 +46,7 @@ export default async function ProgramsPage() {
           </p>
         </div>
       </div>
-      <ProgramList initialPrograms={programs as any} />
+      <ProgramList initialPrograms={programs} />
     </div>
   )
 }

@@ -237,7 +237,7 @@ export default async function InstructorHomePage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {upcomingAssignments.map((assignment: any) => (
+              {upcomingAssignments.map((assignment) => (
                 <div
                   key={assignment.id}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"

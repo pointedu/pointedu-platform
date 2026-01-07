@@ -1,27 +1,35 @@
 /**
+ * Prisma Decimal 타입 인터페이스
+ */
+interface PrismaDecimal {
+  toNumber(): number
+  toString(): string
+}
+
+/**
  * Prisma Decimal을 일반 숫자로 변환
  * Next.js Server Component에서 Client Component로 전달 시 필요
  */
-export function toNumber(value: any): number | null {
+export function toNumber(value: number | PrismaDecimal | null | undefined): number | null {
   if (value === null || value === undefined) return null
   if (typeof value === 'number') return value
   // Prisma Decimal has toNumber method
-  if (typeof value?.toNumber === 'function') return value.toNumber()
+  if (typeof (value as PrismaDecimal)?.toNumber === 'function') return (value as PrismaDecimal).toNumber()
   return Number(value)
 }
 
 /**
  * 값이 Prisma Decimal인지 확인
  */
-function isDecimal(value: unknown): boolean {
+function isDecimal(value: unknown): value is PrismaDecimal {
   return (
     value !== null &&
     value !== undefined &&
     typeof value === 'object' &&
     'toNumber' in value &&
     'toString' in value &&
-    typeof (value as any).toNumber === 'function' &&
-    typeof (value as any).toString === 'function'
+    typeof (value as PrismaDecimal).toNumber === 'function' &&
+    typeof (value as PrismaDecimal).toString === 'function'
   )
 }
 
@@ -35,7 +43,7 @@ export function serializeDecimal<T>(obj: T): T {
   }
 
   if (isDecimal(obj)) {
-    return (obj as any).toNumber() as T
+    return obj.toNumber() as unknown as T
   }
 
   if (obj instanceof Date) {

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import ResourceList from './ResourceList'
+import { serializeDecimalArray } from '../../lib/utils'
 
 async function getResources() {
   try {
@@ -22,7 +23,7 @@ async function getResources() {
         createdAt: 'desc',
       },
     })
-    return resources
+    return serializeDecimalArray(resources)
   } catch (error) {
     console.error('Failed to fetch resources:', error)
     return []
@@ -50,8 +51,26 @@ async function getInstructors() {
   }
 }
 
+interface Resource {
+  id: string
+  title: string
+  description: string | null
+  category: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  filePath: string
+  isPublic: boolean
+  downloadCount: number
+  authorId: string
+  authorName: string
+  createdAt: string
+  accessList: { instructor: { id: string; name: string } }[]
+}
+
 export default async function ResourcesPage() {
-  const resources = await getResources()
+  const rawResources = await getResources()
+  const resources = rawResources as unknown as Resource[]
   const instructors = await getInstructors()
 
   return (
@@ -66,7 +85,7 @@ export default async function ResourcesPage() {
       </div>
 
       <ResourceList
-        initialResources={resources as any}
+        initialResources={resources}
         instructors={instructors}
       />
     </div>

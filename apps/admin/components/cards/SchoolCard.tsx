@@ -69,7 +69,7 @@ export default function SchoolCard({ school, onEdit, onDelete }: SchoolCardProps
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-500">
           {school.region}
-          {school.distanceKm && ` · ${school.distanceKm}km`}
+          {Number(school.distanceKm || 0) > 0 && ` · ${school.distanceKm}km`}
         </span>
       </div>
 

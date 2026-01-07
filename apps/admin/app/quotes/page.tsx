@@ -83,12 +83,44 @@ async function getTransportSettings() {
   }
 }
 
+interface Quote {
+  id: string
+  quoteNumber: string
+  sessionFee: number
+  transportFee: number
+  materialCost: number
+  marginRate: number
+  finalTotal: number
+  validUntil: string
+  status: string
+  request: {
+    id: string
+    school: { name: string }
+    program?: { name: string } | null
+    customProgram?: string | null
+    sessions: number
+    studentCount: number
+  }
+}
+
+interface PendingRequest {
+  id: string
+  school: { name: string }
+  program?: { name: string } | null
+  customProgram?: string | null
+  sessions: number
+  studentCount: number
+  status: string
+}
+
 export default async function QuotesPage() {
-  const [quotes, pendingRequests, transportSettings] = await Promise.all([
+  const [rawQuotes, rawPendingRequests, transportSettings] = await Promise.all([
     getQuotes(),
     getPendingRequests(),
     getTransportSettings(),
   ])
+  const quotes = rawQuotes as unknown as Quote[]
+  const pendingRequests = rawPendingRequests as unknown as PendingRequest[]
 
   return (
     <div>
@@ -107,8 +139,8 @@ export default async function QuotesPage() {
       </div>
 
       <QuoteList
-        initialQuotes={quotes as any}
-        pendingRequests={pendingRequests as any}
+        initialQuotes={quotes}
+        pendingRequests={pendingRequests}
         transportSettings={transportSettings}
       />
     </div>

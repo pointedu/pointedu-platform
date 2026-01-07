@@ -181,7 +181,7 @@ const PaymentStatement = forwardRef<HTMLDivElement, PaymentStatementProps>(
                   {Number(payment.transportFee).toLocaleString()}원
                 </td>
               </tr>
-              {payment.bonus && Number(payment.bonus) > 0 && (
+              {Number(payment.bonus || 0) > 0 && (
                 <tr>
                   <td className="border px-3 py-2 bg-gray-50">보너스/인센티브</td>
                   <td className="border px-3 py-2 text-right">
@@ -201,7 +201,7 @@ const PaymentStatement = forwardRef<HTMLDivElement, PaymentStatementProps>(
                   -{Number(payment.taxWithholding).toLocaleString()}원
                 </td>
               </tr>
-              {payment.deductions && Number(payment.deductions) > 0 && (
+              {Number(payment.deductions || 0) > 0 && (
                 <tr className="text-red-600">
                   <td className="border px-3 py-2 bg-gray-50">기타 공제</td>
                   <td className="border px-3 py-2 text-right">

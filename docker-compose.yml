@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  pointedu-admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: pointedu-admin
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SOLAPI_API_KEY=${SOLAPI_API_KEY}
+      - SOLAPI_API_SECRET=${SOLAPI_API_SECRET}
+      - SOLAPI_SENDER_NUMBER=${SOLAPI_SENDER_NUMBER}
+      - SOLAPI_PF_ID=${SOLAPI_PF_ID}
+      - SOLAPI_TEMPLATE_ASSIGNMENT=${SOLAPI_TEMPLATE_ASSIGNMENT}
+      - SOLAPI_TEMPLATE_REMINDER=${SOLAPI_TEMPLATE_REMINDER}
+      - SOLAPI_TEMPLATE_INSTRUCTOR_APPROVED=${SOLAPI_TEMPLATE_INSTRUCTOR_APPROVED}
+      - CRON_SECRET=${CRON_SECRET}
+    networks:
+      - pointedu-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/providers"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  pointedu-network:
+    driver: bridge

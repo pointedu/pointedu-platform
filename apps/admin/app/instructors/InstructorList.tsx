@@ -714,11 +714,11 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
             </div>
 
             {/* 경력 및 자격 */}
-            {(selectedInstructor.experience || (selectedInstructor.certifications && selectedInstructor.certifications.length > 0)) && (
+            {(Number(selectedInstructor.experience || 0) > 0 || (selectedInstructor.certifications && selectedInstructor.certifications.length > 0)) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">경력 및 자격</h4>
                 <div className="space-y-2 text-sm">
-                  {selectedInstructor.experience && (
+                  {Number(selectedInstructor.experience || 0) > 0 && (
                     <div>
                       <span className="text-gray-500">경력:</span>
                       <span className="ml-2 text-gray-900">{selectedInstructor.experience}년</span>

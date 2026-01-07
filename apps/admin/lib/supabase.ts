@@ -4,6 +4,24 @@
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
+// 타입 정의
+interface SupabaseFile {
+  name: string
+  id?: string
+  updated_at?: string
+  created_at?: string
+  last_accessed_at?: string
+  metadata?: Record<string, unknown>
+}
+
+interface SupabaseBucket {
+  id: string
+  name: string
+  public: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 // Storage 버킷 이름
 export const STORAGE_BUCKETS = {
   RESOURCES: 'resources',
@@ -82,7 +100,7 @@ export async function deleteFile(bucket: string, filePath: string): Promise<bool
 /**
  * 파일 목록 조회
  */
-export async function listFiles(bucket: string, folder?: string): Promise<any[]> {
+export async function listFiles(bucket: string, folder?: string): Promise<SupabaseFile[]> {
   try {
     const prefix = folder ? `${folder}/` : ''
     const url = `${SUPABASE_URL}/storage/v1/object/list/${bucket}`
@@ -134,8 +152,8 @@ export async function ensureBucket(bucket: string, isPublic: boolean = true): Pr
     })
 
     if (listResponse.ok) {
-      const buckets = await listResponse.json()
-      if (buckets.some((b: any) => b.name === bucket)) {
+      const buckets: SupabaseBucket[] = await listResponse.json()
+      if (buckets.some((b) => b.name === bucket)) {
         return true // 이미 존재
       }
     }

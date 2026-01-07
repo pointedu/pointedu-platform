@@ -23,8 +23,23 @@ async function getSchools() {
   }
 }
 
+interface School {
+  id: string
+  name: string
+  type: string
+  address: string
+  region: string
+  phoneNumber: string
+  email?: string | null
+  distanceKm?: number | null
+  transportFee?: number | null
+  totalStudents?: number | null
+  active: boolean
+  _count: { requests: number }
+}
+
 export default async function SchoolsPage() {
-  const schools = await getSchools()
+  const schools = await getSchools() as School[]
 
   return (
     <div>
@@ -36,7 +51,7 @@ export default async function SchoolsPage() {
           </p>
         </div>
       </div>
-      <SchoolList initialSchools={schools as any} />
+      <SchoolList initialSchools={schools} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../lib/auth'
 import { prisma } from '@pointedu/database'
 import ResourceView from './ResourceView'
+import { serializeDecimalArray } from '../../../lib/utils'
 
 async function getResources(userId: string) {
   try {
@@ -34,18 +35,33 @@ async function getResources(userId: string) {
       },
     })
 
-    return resources
+    return serializeDecimalArray(resources)
   } catch (error) {
     console.error('Failed to fetch resources:', error)
     return []
   }
 }
 
+interface Resource {
+  id: string
+  title: string
+  description: string | null
+  category: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  filePath: string
+  downloadCount: number
+  authorName: string
+  createdAt: string
+}
+
 export default async function InstructorResourcesPage() {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id as string
 
-  const resources = await getResources(userId)
+  const rawResources = await getResources(userId)
+  const resources = rawResources as unknown as Resource[]
 
   return (
     <div>
@@ -56,7 +72,7 @@ export default async function InstructorResourcesPage() {
         </p>
       </div>
 
-      <ResourceView resources={resources as any} />
+      <ResourceView resources={resources} />
     </div>
   )
 }

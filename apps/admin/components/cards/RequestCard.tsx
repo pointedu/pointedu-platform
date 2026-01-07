@@ -118,7 +118,7 @@ export default function RequestCard({ request, onSelect, onAssign, onAutomate }:
       {/* 지역 정보 */}
       <div className="text-sm text-gray-500">
         {request.school.region}
-        {request.school.distanceKm && ` (${request.school.distanceKm}km)`}
+        {Number(request.school.distanceKm || 0) > 0 && ` (${request.school.distanceKm}km)`}
       </div>
 
       {/* 배정 강사 */}

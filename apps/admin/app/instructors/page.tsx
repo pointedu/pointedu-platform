@@ -28,8 +28,37 @@ async function getInstructors() {
   }
 }
 
+interface Instructor {
+  id: string
+  name: string
+  homeBase: string
+  phoneNumber: string
+  email?: string | null
+  subjects: string[]
+  rangeKm: string
+  availableDays: string[]
+  status: string
+  rating: number | null
+  totalClasses: number
+  bankName?: string | null
+  accountNumber?: string | null
+  accountHolder?: string | null
+  bankAccount?: string | null
+  residentNumber?: string | null
+  emergencyContact?: string | null
+  experience?: number | null
+  certifications?: string[]
+  notes?: string | null
+  createdAt?: string
+  _count: {
+    assignments: number
+    payments: number
+  }
+}
+
 export default async function InstructorsPage() {
-  const instructors = await getInstructors()
+  const rawInstructors = await getInstructors()
+  const instructors = rawInstructors as unknown as Instructor[]
 
   return (
     <div>
@@ -48,7 +77,7 @@ export default async function InstructorsPage() {
         </button>
       </div>
 
-      <InstructorList initialInstructors={instructors as any} />
+      <InstructorList initialInstructors={instructors} />
     </div>
   )
 }

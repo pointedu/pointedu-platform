@@ -113,12 +113,63 @@ async function getTransportSettings() {
   }
 }
 
+interface Request {
+  id: string
+  requestNumber: string
+  status: string
+  sessions: number
+  studentCount: number
+  schoolBudget?: number | null
+  preferredDates?: string[] | null
+  school: {
+    id: string
+    name: string
+    region: string
+    distanceKm?: number | null
+  }
+  program?: {
+    name: string
+    category: string
+  } | null
+  customProgram?: string | null
+  assignments: Array<{
+    id: string
+    status: string
+    instructor: {
+      id: string
+      name: string
+    }
+  }>
+}
+
+interface Instructor {
+  id: string
+  name: string
+  homeBase: string
+  subjects: string[]
+  rangeKm: string
+  availableDays: string[]
+  status: string
+}
+
+interface SchoolOption {
+  id: string
+  name: string
+  region: string
+}
+
+interface ProgramOption {
+  id: string
+  name: string
+  category: string
+}
+
 export default async function RequestsPage() {
   const [requests, instructors, schools, programs, transportSettings] = await Promise.all([
-    getRequests(),
-    getAvailableInstructors(),
-    getSchools(),
-    getPrograms(),
+    getRequests() as Promise<Request[]>,
+    getAvailableInstructors() as Promise<Instructor[]>,
+    getSchools() as Promise<SchoolOption[]>,
+    getPrograms() as Promise<ProgramOption[]>,
     getTransportSettings(),
   ])
 
@@ -134,10 +185,10 @@ export default async function RequestsPage() {
       </div>
 
       <RequestList
-        initialRequests={requests as any}
-        availableInstructors={instructors as any}
-        schools={schools as any}
-        programs={programs as any}
+        initialRequests={requests}
+        availableInstructors={instructors}
+        schools={schools}
+        programs={programs}
         transportSettings={transportSettings}
       />
     </div>

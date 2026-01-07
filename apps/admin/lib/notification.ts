@@ -23,6 +23,22 @@ interface NotificationResult {
   error?: string
 }
 
+// 솔라피 메시지 인터페이스
+interface SolapiMessage {
+  to: string
+  from: string
+  text?: string
+  kakaoOptions?: {
+    pfId: string
+    templateId: string
+    variables?: Record<string, string>
+  }
+}
+
+interface SolapiMessageBody {
+  message: SolapiMessage
+}
+
 // 솔라피 API 인증 헤더 생성
 function createSolapiHeaders() {
   const apiKey = process.env.SOLAPI_API_KEY
@@ -64,7 +80,7 @@ async function sendSolapiMessage(
   try {
     const headers = createSolapiHeaders()
 
-    const messageBody: any = {
+    const messageBody: SolapiMessageBody = {
       message: {
         to: to.replace(/-/g, ''),
         from: senderNumber.replace(/-/g, ''),

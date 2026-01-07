@@ -173,7 +173,7 @@ export default function ScheduleList({ assignments }: ScheduleListProps) {
             )}
           </div>
           <div className="mt-2 text-sm">
-            {assignment.request.studentCount && (
+            {Number(assignment.request.studentCount || 0) > 0 && (
               <>
                 <span className="text-gray-500">학생 수: </span>
                 <span className="font-medium">{assignment.request.studentCount}명</span>

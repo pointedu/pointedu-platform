@@ -59,11 +59,40 @@ async function getAvailableClasses(userId: string) {
   }
 }
 
+interface ClassItem {
+  id: string
+  requestNumber: string
+  school: {
+    id: string
+    name: string
+    address: string
+    region: string
+  }
+  program: {
+    id: string
+    name: string
+  } | null
+  customProgram: string | null
+  sessions: number
+  studentCount: number
+  targetGrade: string
+  desiredDate: string | null
+  alternateDate: string | null
+  requirements: string | null
+  applications: {
+    instructorId: string
+    status: string
+  }[]
+}
+
 export default async function AvailableClassesPage() {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id as string
 
-  const { instructor, classes } = await getAvailableClasses(userId)
+  const { instructor, classes } = await getAvailableClasses(userId) as {
+    instructor: { id: string; applications: { requestId: string }[] } | null
+    classes: ClassItem[]
+  }
 
   if (!instructor) {
     return (
@@ -83,7 +112,7 @@ export default async function AvailableClassesPage() {
       </div>
 
       <AvailableClassList
-        classes={classes as any}
+        classes={classes}
         instructorId={instructor.id}
         appliedRequestIds={instructor.applications.map((a) => a.requestId)}
       />

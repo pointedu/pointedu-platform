@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Next.js build outputs
+**/.next
+**/out
+
+# Testing
+**/coverage
+
+# Misc
+**/.DS_Store
+**/*.pem
+
+# Debug logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Local env files (production env will be passed via docker-compose)
+**/.env*.local
+.env.local
+
+# IDE
+.idea
+.vscode
+**/*.swp
+**/*.swo
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Turbo
+.turbo
