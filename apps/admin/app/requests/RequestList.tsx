@@ -156,6 +156,8 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const [selectedInstructorId, setSelectedInstructorId] = useState('')
   const [assignDistanceKm, setAssignDistanceKm] = useState('')
   const [assignTransportFee, setAssignTransportFee] = useState('')
+  const [assignScheduledDate, setAssignScheduledDate] = useState('')
+  const [assignScheduledTime, setAssignScheduledTime] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [detailRequest, setDetailRequest] = useState<Request | null>(null)
@@ -256,6 +258,10 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     setSelectedInstructorId('')
     setAssignDistanceKm('')
     setAssignTransportFee('')
+    // 희망일이 있으면 기본값으로 설정
+    const preferredDate = request.preferredDates?.[0] || ''
+    setAssignScheduledDate(preferredDate ? preferredDate.split('T')[0] : '')
+    setAssignScheduledTime('')
     setIsAssignModalOpen(true)
   }
 
@@ -318,6 +324,8 @@ export default function RequestList({ initialRequests, availableInstructors, sch
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instructorId: selectedInstructorId,
+          scheduledDate: assignScheduledDate || null,
+          scheduledTime: assignScheduledTime || null,
           distanceKm: assignDistanceKm,
           transportFee: assignTransportFee,
         }),
@@ -329,6 +337,8 @@ export default function RequestList({ initialRequests, availableInstructors, sch
         setSelectedInstructorId('')
         setAssignDistanceKm('')
         setAssignTransportFee('')
+        setAssignScheduledDate('')
+        setAssignScheduledTime('')
         router.refresh()
       }
     } catch (error) {
@@ -655,6 +665,43 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                     )
                   })
                 )}
+              </div>
+            </div>
+
+            {/* 수업 일정 입력 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  수업 날짜 *
+                </label>
+                <input
+                  type="date"
+                  value={assignScheduledDate}
+                  onChange={(e) => setAssignScheduledDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required
+                />
+                {selectedRequest?.preferredDates && selectedRequest.preferredDates.length > 0 && (
+                  <p className="mt-1 text-xs text-blue-600">
+                    희망일: {selectedRequest.preferredDates.slice(0, 2).map(d =>
+                      new Date(d).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+                    ).join(', ')}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  수업 시간
+                </label>
+                <input
+                  type="time"
+                  value={assignScheduledTime}
+                  onChange={(e) => setAssignScheduledTime(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  예: 09:00, 13:30
+                </p>
               </div>
             </div>
 

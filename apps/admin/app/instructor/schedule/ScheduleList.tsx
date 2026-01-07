@@ -26,6 +26,7 @@ interface Assignment {
     customProgram?: string | null
     studentCount?: number
     sessions: number
+    desiredDate?: string | null
   }
 }
 
@@ -136,14 +137,26 @@ export default function ScheduleList({ assignments }: ScheduleListProps) {
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" />
               <span>
-                {assignment.scheduledDate
-                  ? new Date(assignment.scheduledDate).toLocaleDateString('ko-KR', {
+                {assignment.scheduledDate ? (
+                  new Date(assignment.scheduledDate).toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'long',
+                  })
+                ) : assignment.request.desiredDate ? (
+                  <span className="flex items-center gap-1">
+                    {new Date(assignment.request.desiredDate).toLocaleDateString('ko-KR', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
                       weekday: 'long',
-                    })
-                  : '일정 미정'}
+                    })}
+                    <span className="text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">(희망일)</span>
+                  </span>
+                ) : (
+                  <span className="text-red-500">일정 미정</span>
+                )}
               </span>
             </div>
             {assignment.scheduledTime && (

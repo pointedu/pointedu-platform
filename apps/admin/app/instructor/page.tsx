@@ -250,9 +250,24 @@ export default async function InstructorHomePage() {
                       {assignment.request.program?.name || assignment.request.customProgram}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {assignment.scheduledDate
-                        ? new Date(assignment.scheduledDate).toLocaleDateString('ko-KR')
-                        : '일정 미정'}
+                      {assignment.scheduledDate ? (
+                        <span>
+                          {new Date(assignment.scheduledDate).toLocaleDateString('ko-KR', {
+                            month: 'short',
+                            day: 'numeric',
+                            weekday: 'short',
+                          })}
+                        </span>
+                      ) : assignment.request.desiredDate ? (
+                        <span className="text-orange-600">
+                          {new Date(assignment.request.desiredDate).toLocaleDateString('ko-KR', {
+                            month: 'short',
+                            day: 'numeric',
+                          })} (희망)
+                        </span>
+                      ) : (
+                        <span className="text-red-500">미정</span>
+                      )}
                       {assignment.scheduledTime && ` ${assignment.scheduledTime}`}
                     </p>
                   </div>

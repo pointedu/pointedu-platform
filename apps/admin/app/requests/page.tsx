@@ -22,7 +22,17 @@ async function getRequests() {
       },
       take: 50,
     })
-    return serializeDecimalArray(requests)
+
+    // desiredDate, alternateDate를 preferredDates 배열로 변환
+    const requestsWithPreferredDates = requests.map(request => ({
+      ...request,
+      preferredDates: [
+        request.desiredDate?.toISOString(),
+        request.alternateDate?.toISOString(),
+      ].filter(Boolean) as string[]
+    }))
+
+    return serializeDecimalArray(requestsWithPreferredDates)
   } catch (error) {
     console.error('Failed to fetch requests:', error)
     return []
