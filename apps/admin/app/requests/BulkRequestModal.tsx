@@ -32,7 +32,8 @@ interface BulkRequestItem {
   sessions: number
   studentCount: number
   targetGrade: string
-  scheduledTime: string
+  startTime: string
+  endTime: string
   note: string
 }
 
@@ -68,7 +69,8 @@ export default function BulkRequestModal({
       sessions: 2,
       studentCount: 25,
       targetGrade: '',
-      scheduledTime: '',
+      startTime: '09:00',
+      endTime: '10:30',
       note: '',
     }
   }
@@ -118,7 +120,7 @@ export default function BulkRequestModal({
             sessions: item.sessions,
             studentCount: item.studentCount,
             targetGrade: item.targetGrade,
-            scheduledTime: item.scheduledTime,
+            scheduledTime: item.startTime && item.endTime ? `${item.startTime}~${item.endTime}` : null,
             note: item.note,
           })),
         }),
@@ -303,23 +305,37 @@ export default function BulkRequestModal({
                     </select>
                   </div>
 
-                  {/* 수업 시간 */}
-                  <div>
+                  {/* 수업 시간 (시작~종료) */}
+                  <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-600 mb-1">
                       수업 시간
                     </label>
-                    <select
-                      value={item.scheduledTime}
-                      onChange={(e) => updateItem(item.id, 'scheduledTime', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="">시간 선택</option>
-                      {timeOptions.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={item.startTime}
+                        onChange={(e) => updateItem(item.id, 'startTime', e.target.value)}
+                        className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      >
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500">~</span>
+                      <select
+                        value={item.endTime}
+                        onChange={(e) => updateItem(item.id, 'endTime', e.target.value)}
+                        className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      >
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">({item.sessions}차시)</span>
+                    </div>
                   </div>
 
                   {/* 대상 학년 */}
