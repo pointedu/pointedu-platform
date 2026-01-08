@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@pointedu/database'
+import { Prisma } from '@pointedu/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const category = searchParams.get('category')
 
-    const where: any = { isPublished: true }
+    const where: Prisma.NoticeWhereInput = { isPublished: true }
     if (category && category !== 'all') {
       where.category = category
     }

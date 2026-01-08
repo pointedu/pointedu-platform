@@ -32,10 +32,11 @@ export class SolapiClient {
   private baseUrl = 'https://api.solapi.com'
 
   constructor(config: SolapiConfig) {
-    this.apiKey = config.apiKey
-    this.apiSecret = config.apiSecret
-    this.pfId = config.pfId
-    this.senderNumber = config.senderNumber
+    // 환경 변수에서 공백/개행 문자 제거
+    this.apiKey = config.apiKey?.trim() || ''
+    this.apiSecret = config.apiSecret?.trim() || ''
+    this.pfId = config.pfId?.trim() || ''
+    this.senderNumber = config.senderNumber?.trim() || ''
   }
 
   private generateSignature(): { signature: string; timestamp: string; salt: string } {

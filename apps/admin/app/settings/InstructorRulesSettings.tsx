@@ -99,7 +99,7 @@ export default function InstructorRulesSettings() {
         const data = await res.json()
         alert(data.error || '저장에 실패했습니다.')
       }
-    } catch (error) {
+    } catch (_error) {
       alert('저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
@@ -124,7 +124,7 @@ export default function InstructorRulesSettings() {
         const data = await res.json()
         alert(data.error || '저장에 실패했습니다.')
       }
-    } catch (error) {
+    } catch (_error) {
       alert('저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)

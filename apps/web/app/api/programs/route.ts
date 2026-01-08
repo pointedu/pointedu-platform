@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@pointedu/database'
+import { Prisma } from '@pointedu/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,9 +10,10 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const featured = searchParams.get('featured')
 
-    const where: any = { active: true }
+    const where: Prisma.ProgramWhereInput = { active: true }
     if (category && category !== 'all') {
-      where.category = category
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      where.category = { equals: category as any }
     }
     if (featured === 'true') {
       where.featured = true

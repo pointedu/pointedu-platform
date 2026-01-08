@@ -8,6 +8,15 @@ import { sendReminderNotification } from '../../../../lib/notification'
 // 이 API는 매일 오전 9시에 호출되도록 설정 (Vercel Cron, n8n, 또는 외부 스케줄러 사용)
 // GET /api/cron/reminder?secret=YOUR_CRON_SECRET
 
+interface ReminderResult {
+  assignmentId: string
+  instructorName: string
+  status: 'sent' | 'failed' | 'skipped'
+  reason?: string
+  error?: string
+  messageId?: string
+}
+
 export async function GET(request: NextRequest) {
   try {
     // CRON 보안 토큰 확인
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
       sent: 0,
       failed: 0,
       skipped: 0,
-      details: [] as any[],
+      details: [] as ReminderResult[],
     }
 
     // 각 배정에 대해 리마인더 발송
@@ -192,7 +201,7 @@ export async function POST(request: NextRequest) {
       sent: 0,
       failed: 0,
       skipped: 0,
-      details: [] as any[],
+      details: [] as ReminderResult[],
     }
 
     for (const assignment of assignments) {

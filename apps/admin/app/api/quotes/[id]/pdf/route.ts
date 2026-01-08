@@ -3,6 +3,7 @@ import { renderToBuffer } from '@react-pdf/renderer'
 import { prisma } from '@pointedu/database'
 import QuotePDF from '../../../../../components/QuotePDF'
 import { createElement } from 'react'
+import { ReactElement } from 'react'
 
 export async function GET(
   request: NextRequest,
@@ -87,7 +88,7 @@ export async function GET(
     // PDF 생성
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
-      createElement(QuotePDF, { data: pdfData }) as any
+      createElement(QuotePDF, { data: pdfData }) as ReactElement
     )
 
     // 파일명 생성

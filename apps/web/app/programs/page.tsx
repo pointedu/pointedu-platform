@@ -2,6 +2,22 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@pointedu/database'
 import ProgramList from './ProgramList'
+import { Prisma } from '@pointedu/database'
+
+type Program = Prisma.ProgramGetPayload<{
+  select: {
+    id: true,
+    code: true,
+    name: true,
+    category: true,
+    description: true,
+    targetGrades: true,
+    sessionCount: true,
+    sessionMinutes: true,
+    tags: true,
+    featured: true
+  }
+}>
 
 async function getPrograms() {
   try {
@@ -39,7 +55,7 @@ export default async function ProgramsPage() {
 
       <section className="section-padding">
         <div className="container-custom">
-          <ProgramList initialPrograms={programs as any} />
+          <ProgramList initialPrograms={programs as Program[]} />
         </div>
       </section>
     </div>

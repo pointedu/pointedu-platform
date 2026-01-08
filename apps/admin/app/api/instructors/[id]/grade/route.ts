@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../../lib/auth'
 import { prisma } from '@pointedu/database'
+import { Prisma } from '@pointedu/database'
 import { calculateInstructorGrade, INTERNAL_GRADES, EXTERNAL_GRADES } from '../../../../../lib/instructor-grade'
 
 // GET - 강사 등급 정보 조회
@@ -107,7 +108,7 @@ export async function PUT(
     }
 
     // 업데이트할 데이터 구성
-    const updateData: any = {
+    const updateData: Prisma.InstructorUpdateInput = {
       gradeUpdatedAt: new Date(),
     }
 

@@ -52,8 +52,9 @@ function isBrandMessageTemplate(templateId: string): boolean {
 
 // 솔라피 API 인증 헤더 생성
 function createSolapiHeaders() {
-  const apiKey = process.env.SOLAPI_API_KEY
-  const apiSecret = process.env.SOLAPI_API_SECRET
+  // 환경 변수에서 공백/개행 문자 제거
+  const apiKey = process.env.SOLAPI_API_KEY?.trim()
+  const apiSecret = process.env.SOLAPI_API_SECRET?.trim()
 
   if (!apiKey || !apiSecret) {
     throw new Error('Solapi credentials not configured')
@@ -81,8 +82,9 @@ async function sendSolapiMessage(
     variables?: Record<string, string>
   }
 ): Promise<NotificationResult> {
-  const senderNumber = process.env.SOLAPI_SENDER_NUMBER
-  const pfId = process.env.SOLAPI_PF_ID
+  // 환경 변수에서 공백/개행 문자 제거
+  const senderNumber = process.env.SOLAPI_SENDER_NUMBER?.trim()
+  const pfId = process.env.SOLAPI_PF_ID?.trim()
 
   if (!senderNumber) {
     return { success: false, error: 'Sender number not configured' }
