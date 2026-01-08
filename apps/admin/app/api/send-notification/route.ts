@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     if (notificationType === 'kakao') {
       // 카카오톡 알림톡 발송
-      const pfId = process.env.SOLAPI_KAKAO_PF_ID?.trim()
+      const pfId = process.env.SOLAPI_PF_ID?.trim()
       if (!pfId) {
         return NextResponse.json({
           error: '카카오톡 발송을 위한 PF ID가 설정되지 않았습니다.'
