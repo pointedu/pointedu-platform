@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AcademicCapIcon,
@@ -37,6 +37,10 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
   const router = useRouter()
   const [programs, setPrograms] = useState(initialPrograms)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // initialPrograms가 변경되면 상태 업데이트
   useEffect(() => {
@@ -111,18 +115,24 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/programs/${id}`, { method: 'DELETE' })
       if (res.ok) {
+        startTransition(() => {
+          setPrograms(prev => prev.filter(p => p.id !== id))
+        })
         router.refresh()
       }
     } catch (error) {
       console.error('Failed to delete program:', error)
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   return (
     <>
@@ -165,9 +175,14 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
                   </button>
                   <button
                     onClick={() => handleDelete(program.id)}
-                    className="text-red-600 hover:text-red-900"
+                    disabled={actionLoading === program.id || isPending}
+                    className={`text-red-600 hover:text-red-900 ${actionLoading === program.id ? 'opacity-50 cursor-wait' : ''}`}
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    {actionLoading === program.id ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                    ) : (
+                      <TrashIcon className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>

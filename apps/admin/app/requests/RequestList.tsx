@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ClockIcon,
@@ -149,6 +149,10 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const [requests, setRequests] = useState(initialRequests)
   const [filteredRequests, setFilteredRequests] = useState(initialRequests)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // initialRequests가 변경되면 상태 업데이트
   useEffect(() => {

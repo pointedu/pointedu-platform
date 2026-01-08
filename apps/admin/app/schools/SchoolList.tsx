@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BuildingOffice2Icon,
@@ -27,6 +27,7 @@ interface School {
   distanceKm?: number | null
   transportFee?: number | null
   totalStudents?: number | null
+  notes?: string | null
   active: boolean
   _count: { requests: number }
 }
@@ -37,12 +38,17 @@ const schoolTypes = {
   HIGH: '고등학교',
   SPECIAL: '특수학교',
   ALTERNATIVE: '대안학교',
+  INSTITUTION: '기관',
 }
 
 export default function SchoolList({ initialSchools }: { initialSchools: School[] }) {
   const router = useRouter()
   const [schools, setSchools] = useState(initialSchools)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // initialSchools가 변경되면 상태 업데이트
   useEffect(() => {
@@ -60,6 +66,7 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     distanceKm: '',
     transportFee: '',
     totalStudents: '',
+    notes: '',
   })
 
   const resetForm = () => {
@@ -73,6 +80,7 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
       distanceKm: '',
       transportFee: '',
       totalStudents: '',
+      notes: '',
     })
     setEditingSchool(null)
   }
@@ -82,7 +90,7 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     setIsModalOpen(true)
   }
 
-  const openEditModal = (school: School) => {
+  const openEditModal = useCallback((school: School) => {
     setEditingSchool(school)
     setFormData({
       name: school.name,
@@ -94,9 +102,10 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
       distanceKm: school.distanceKm?.toString() || '',
       transportFee: school.transportFee?.toString() || '',
       totalStudents: school.totalStudents?.toString() || '',
+      notes: school.notes || '',
     })
     setIsModalOpen(true)
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,18 +135,24 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/schools/${id}`, { method: 'DELETE' })
       if (res.ok) {
+        startTransition(() => {
+          setSchools(prev => prev.filter(s => s.id !== id))
+        })
         router.refresh()
       }
     } catch (error) {
       console.error('Failed to delete school:', error)
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   const handleExportExcel = () => {
     const exportData = schools.map(school => ({
@@ -242,15 +257,21 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
                     <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
                       <button
                         onClick={() => openEditModal(school)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        disabled={actionLoading === school.id || isPending}
+                        className={`text-blue-600 hover:text-blue-900 mr-3 ${actionLoading === school.id ? 'opacity-50 cursor-wait' : ''}`}
                       >
                         <PencilIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(school.id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={actionLoading === school.id || isPending}
+                        className={`text-red-600 hover:text-red-900 ${actionLoading === school.id ? 'opacity-50 cursor-wait' : ''}`}
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        {actionLoading === school.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                        ) : (
+                          <TrashIcon className="h-4 w-4" />
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -356,6 +377,17 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">메모</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={3}
+              placeholder="학교 관련 특이사항, 담당자 정보 등을 입력하세요..."
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

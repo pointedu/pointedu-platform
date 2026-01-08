@@ -194,6 +194,7 @@ enum SchoolType {
   HIGH           // 고등학교
   SPECIAL        // 특수학교
   ALTERNATIVE    // 대안학교
+  INSTITUTION    // 기관 (교육청, 지자체, 단체 등)
 }
 
 model School {

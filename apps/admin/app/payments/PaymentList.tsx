@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CurrencyDollarIcon,
@@ -101,6 +101,9 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
   const [payments, setPayments] = useState(initialPayments)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
 
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+
   // initialPayments가 변경되면 상태 업데이트
   useEffect(() => {
     setPayments(initialPayments)
@@ -199,7 +202,7 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
     }
   }
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = useCallback(async (id: string, newStatus: string) => {
     setLoading(id)
 
     try {
@@ -210,6 +213,9 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
       })
 
       if (res.ok) {
+        startTransition(() => {
+          setPayments(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p))
+        })
         router.refresh()
       }
     } catch (error) {
@@ -217,7 +223,7 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
     } finally {
       setLoading(null)
     }
-  }
+  }, [router])
 
   const handleBulkApprove = async () => {
     if (selectedIds.length === 0) return

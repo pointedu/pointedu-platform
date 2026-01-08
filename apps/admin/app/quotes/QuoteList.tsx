@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DocumentDuplicateIcon,
@@ -92,6 +92,10 @@ export default function QuoteList({ initialQuotes, pendingRequests, transportSet
   const router = useRouter()
   const [quotes, setQuotes] = useState(initialQuotes)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // initialQuotes가 변경되면 상태 업데이트
   useEffect(() => {

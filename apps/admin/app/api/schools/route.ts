@@ -8,7 +8,7 @@ import { z } from 'zod'
 // 학교 생성 스키마
 const schoolSchema = z.object({
   name: z.string().min(1, '학교명은 필수입니다.'),
-  type: z.enum(['ELEMENTARY', 'MIDDLE', 'HIGH', 'SPECIAL']).optional(),
+  type: z.enum(['ELEMENTARY', 'MIDDLE', 'HIGH', 'SPECIAL', 'ALTERNATIVE', 'INSTITUTION']).optional(),
   address: z.string().optional().nullable(),
   addressDetail: z.string().optional().nullable(),
   region: z.string().optional().nullable(),

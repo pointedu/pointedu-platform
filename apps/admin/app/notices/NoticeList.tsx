@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import FormModal from '../../components/FormModal'
 import {
@@ -65,6 +65,7 @@ function formatFileSize(bytes: number): string {
 export default function NoticeList({ initialNotices }: NoticeListProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [notices, setNotices] = useState(initialNotices)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [editingNotice, setEditingNotice] = useState<Notice | null>(null)
@@ -72,6 +73,10 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
   const [loading, setLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [removeExistingFile, setRemoveExistingFile] = useState(false)
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -174,18 +179,24 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/notices/${id}`, { method: 'DELETE' })
       if (res.ok) {
+        startTransition(() => {
+          setNotices(prev => prev.filter(n => n.id !== id))
+        })
         router.refresh()
       }
     } catch (error) {
       console.error('Failed to delete notice:', error)
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   const togglePublish = async (notice: Notice) => {
     try {
@@ -270,7 +281,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {initialNotices.map((notice) => {
+              {notices.map((notice) => {
                 const categoryInfo = getCategoryInfo(notice.category)
                 const CategoryIcon = categoryInfo.icon
                 return (
@@ -360,10 +371,15 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
                       </button>
                       <button
                         onClick={() => handleDelete(notice.id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={actionLoading === notice.id || isPending}
+                        className={`text-red-600 hover:text-red-900 ${actionLoading === notice.id ? 'opacity-50 cursor-wait' : ''}`}
                         title="삭제"
                       >
-                        <TrashIcon className="h-4 w-4 inline" />
+                        {actionLoading === notice.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent inline-block" />
+                        ) : (
+                          <TrashIcon className="h-4 w-4 inline" />
+                        )}
                       </button>
                     </td>
                   </tr>
