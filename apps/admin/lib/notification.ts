@@ -28,15 +28,17 @@ interface SolapiMessage {
   to: string
   from: string
   text?: string
+  type?: string
   kakaoOptions?: {
     pfId: string
     templateId: string
     variables?: Record<string, string>
+    disableSms?: boolean
   }
 }
 
 interface SolapiMessageBody {
-  message: SolapiMessage
+  messages: SolapiMessage[]
 }
 
 // 솔라피 API 인증 헤더 생성
@@ -80,28 +82,33 @@ async function sendSolapiMessage(
   try {
     const headers = createSolapiHeaders()
 
-    const messageBody: SolapiMessageBody = {
-      message: {
-        to: to.replace(/-/g, ''),
-        from: senderNumber.replace(/-/g, ''),
-      },
+    const message: SolapiMessage = {
+      to: to.replace(/-/g, ''),
+      from: senderNumber.replace(/-/g, ''),
     }
 
     // 카카오 알림톡 사용 (템플릿이 있는 경우)
     if (pfId && kakaoOptions?.templateId) {
-      messageBody.message.kakaoOptions = {
+      message.type = 'ATA' // 알림톡 타입 명시
+      message.kakaoOptions = {
         pfId,
         templateId: kakaoOptions.templateId,
+        disableSms: false, // SMS 대체 발송 활성화
         ...(kakaoOptions.variables && { variables: kakaoOptions.variables }),
       }
     } else {
-      // SMS 대체 발송
-      messageBody.message.text = text
+      // SMS 발송
+      message.type = 'SMS'
+      message.text = text
+    }
+
+    const messageBody: SolapiMessageBody = {
+      messages: [message],
     }
 
     console.log('Sending notification:', JSON.stringify(messageBody, null, 2))
 
-    const response = await fetch('https://api.solapi.com/messages/v4/send', {
+    const response = await fetch('https://api.solapi.com/messages/v4/send-many', {
       method: 'POST',
       headers,
       body: JSON.stringify(messageBody),
@@ -109,12 +116,15 @@ async function sendSolapiMessage(
 
     const result = await response.json()
 
-    if (response.ok && result.statusCode === '2000') {
-      console.log('Notification sent successfully:', result.messageId || result.groupId)
-      return { success: true, messageId: result.messageId || result.groupId }
+    console.log('Solapi response:', JSON.stringify(result, null, 2))
+
+    // 성공 여부 확인 (groupId가 있으면 성공)
+    if (response.ok && result.groupId) {
+      console.log('Notification sent successfully:', result.groupId)
+      return { success: true, messageId: result.groupId }
     } else {
       console.error('Notification failed:', result)
-      return { success: false, error: result.statusMessage || result.message || 'Send failed' }
+      return { success: false, error: result.errorMessage || result.message || 'Send failed' }
     }
   } catch (error) {
     console.error('Notification exception:', error)
