@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, useCallback } from 'react'
 import {
   Cog6ToothIcon,
   UserGroupIcon,
@@ -29,6 +29,13 @@ const tabs = [
 
 export default function SettingsLayout({ sections }: SettingsLayoutProps) {
   const [activeTab, setActiveTab] = useState('general')
+  const [isPending, startTransition] = useTransition()
+
+  const handleTabChange = useCallback((tabId: string) => {
+    startTransition(() => {
+      setActiveTab(tabId)
+    })
+  }, [])
 
   return (
     <div>
@@ -48,13 +55,15 @@ export default function SettingsLayout({ sections }: SettingsLayoutProps) {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
+                disabled={isPending}
                 className={`
                   group inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors
                   ${isActive
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }
+                  ${isPending ? 'opacity-50 cursor-wait' : ''}
                 `}
               >
                 <Icon
@@ -68,7 +77,12 @@ export default function SettingsLayout({ sections }: SettingsLayoutProps) {
       </div>
 
       {/* 탭 컨텐츠 */}
-      <div>
+      <div className="relative">
+        {isPending && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 min-h-[200px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        )}
         {activeTab === 'general' && sections.general}
         {activeTab === 'instructorRules' && sections.instructorRules}
         {activeTab === 'notificationTest' && sections.notificationTest}
