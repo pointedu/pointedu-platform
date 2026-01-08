@@ -127,9 +127,13 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
         setIsModalOpen(false)
         resetForm()
         router.refresh()
+      } else {
+        const data = await res.json()
+        alert(data.error || '학교 저장에 실패했습니다.')
       }
     } catch (error) {
       console.error('Failed to save school:', error)
+      alert('학교 저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
