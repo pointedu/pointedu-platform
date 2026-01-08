@@ -3,6 +3,7 @@ export const revalidate = 180 // Revalidate every 3 minutes
 import { prisma } from '@pointedu/database'
 import SettingsForm from './SettingsForm'
 import BackupManager from './BackupManager'
+import InstructorRulesSettings from './InstructorRulesSettings'
 
 async function getSettings() {
   try {
@@ -27,6 +28,11 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsForm initialSettings={settings} />
+
+      {/* 강사 등급 및 강사비 규정 설정 */}
+      <div className="mt-8">
+        <InstructorRulesSettings />
+      </div>
 
       {/* 데이터 백업 관리 */}
       <div className="mt-8">

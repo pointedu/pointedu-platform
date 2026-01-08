@@ -23,7 +23,7 @@ async function getInstructorData(userId: string) {
 
     if (!user) {
       console.error('User not found:', userId)
-      return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'USER_NOT_FOUND' }
+      return { instructor: null, availableClasses: 0, proposedAssignments: [], upcomingCount: 0, error: 'USER_NOT_FOUND' }
     }
 
     const instructor = await prisma.instructor.findUnique({
@@ -32,7 +32,7 @@ async function getInstructorData(userId: string) {
         assignments: {
           where: {
             status: {
-              in: ['CONFIRMED', 'IN_PROGRESS'],
+              in: ['CONFIRMED', 'IN_PROGRESS', 'ACCEPTED'],
             },
           },
           include: {
@@ -43,9 +43,10 @@ async function getInstructorData(userId: string) {
               },
             },
           },
-          orderBy: {
-            scheduledDate: 'asc',
-          },
+          orderBy: [
+            { scheduledDate: 'asc' },
+            { createdAt: 'asc' },
+          ],
           take: 5,
         },
         applications: {
@@ -67,8 +68,18 @@ async function getInstructorData(userId: string) {
 
     if (!instructor) {
       console.error('Instructor profile not linked to user:', userId, user.email)
-      return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'INSTRUCTOR_NOT_LINKED', user }
+      return { instructor: null, availableClasses: 0, proposedAssignments: [], upcomingCount: 0, error: 'INSTRUCTOR_NOT_LINKED', user }
     }
+
+    // 다가오는 수업의 실제 전체 개수 조회 (CONFIRMED, IN_PROGRESS, ACCEPTED 상태)
+    const upcomingCount = await prisma.instructorAssignment.count({
+      where: {
+        instructorId: instructor.id,
+        status: {
+          in: ['CONFIRMED', 'IN_PROGRESS', 'ACCEPTED'],
+        },
+      },
+    })
 
     // Get proposed/pending assignments that need response
     const proposedAssignments = await prisma.instructorAssignment.findMany({
@@ -91,25 +102,37 @@ async function getInstructorData(userId: string) {
       },
     })
 
-    // Get count of available classes
+    // Get count of available classes (공개된 수업 또는 배정 없는 승인된 수업)
     const availableClasses = await prisma.schoolRequest.count({
       where: {
-        status: {
-          in: ['APPROVED', 'SUBMITTED'],
-        },
-        assignments: {
-          none: {},
-        },
+        OR: [
+          // 공개된 수업
+          {
+            isPublic: true,
+            status: {
+              in: ['APPROVED', 'SUBMITTED'],
+            },
+          },
+          // 배정이 없는 승인된 수업
+          {
+            status: {
+              in: ['APPROVED', 'SUBMITTED'],
+            },
+            assignments: {
+              none: {},
+            },
+          },
+        ],
       },
     })
 
     // Serialize Decimal values for client component
     const serializedInstructor = instructor ? serializeDecimal(instructor) : null
     const serializedProposed = serializeDecimal(proposedAssignments)
-    return { instructor: serializedInstructor, availableClasses, proposedAssignments: serializedProposed, error: null }
+    return { instructor: serializedInstructor, availableClasses, proposedAssignments: serializedProposed, upcomingCount, error: null }
   } catch (error) {
     console.error('Failed to fetch instructor data:', error)
-    return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'DATABASE_ERROR' }
+    return { instructor: null, availableClasses: 0, proposedAssignments: [], upcomingCount: 0, error: 'DATABASE_ERROR' }
   }
 }
 
@@ -117,7 +140,7 @@ export default async function InstructorHomePage() {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id as string
 
-  const { instructor, availableClasses, proposedAssignments, error } = await getInstructorData(userId)
+  const { instructor, availableClasses, proposedAssignments, upcomingCount, error } = await getInstructorData(userId)
 
   if (!instructor) {
     // 에러 유형에 따른 메시지 표시
@@ -162,7 +185,7 @@ export default async function InstructorHomePage() {
       : []),
     {
       name: '다가오는 수업',
-      value: upcomingAssignments.length,
+      value: upcomingCount,
       icon: CalendarIcon,
       color: 'bg-blue-500',
       href: '/instructor/schedule',

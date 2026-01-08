@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
@@ -38,10 +39,17 @@ export default function InstructorLayout({ children }: { children: React.ReactNo
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-blue-600">Point EDU</h1>
-                <span className="ml-2 text-sm text-gray-500">강사 포털</span>
-              </div>
+              <Link href="/instructor" className="flex-shrink-0 flex items-center gap-2">
+                <Image
+                  src="/images/pointedu-logo-full.png"
+                  alt="포인트교육(주)"
+                  width={140}
+                  height={36}
+                  className="h-9 w-auto"
+                  priority
+                />
+                <span className="text-sm text-gray-500 border-l border-gray-300 pl-2">강사 포털</span>
+              </Link>
               <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
                 {navigation.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
