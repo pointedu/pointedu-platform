@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
 import Modal from '../../components/Modal'
@@ -146,8 +146,14 @@ const availableSubjects = [
 
 export default function InstructorList({ initialInstructors }: InstructorListProps) {
   const router = useRouter()
-  const [instructors] = useState(initialInstructors)
+  const [instructors, setInstructors] = useState(initialInstructors)
   const [filteredInstructors, setFilteredInstructors] = useState(initialInstructors)
+
+  // initialInstructors가 변경되면 상태 업데이트
+  useEffect(() => {
+    setInstructors(initialInstructors)
+    setFilteredInstructors(initialInstructors)
+  }, [initialInstructors])
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})

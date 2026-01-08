@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BuildingOffice2Icon,
@@ -41,8 +41,13 @@ const schoolTypes = {
 
 export default function SchoolList({ initialSchools }: { initialSchools: School[] }) {
   const router = useRouter()
-  const [schools, _setSchools] = useState(initialSchools)
+  const [schools, setSchools] = useState(initialSchools)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // initialSchools가 변경되면 상태 업데이트
+  useEffect(() => {
+    setSchools(initialSchools)
+  }, [initialSchools])
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({

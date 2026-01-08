@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DocumentDuplicateIcon,
@@ -90,8 +90,13 @@ function calculateTransportFee(distanceKm: number, settings: TransportSettings):
 
 export default function QuoteList({ initialQuotes, pendingRequests, transportSettings }: QuoteListProps) {
   const router = useRouter()
-  const [quotes, _setQuotes] = useState(initialQuotes)
+  const [quotes, setQuotes] = useState(initialQuotes)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // initialQuotes가 변경되면 상태 업데이트
+  useEffect(() => {
+    setQuotes(initialQuotes)
+  }, [initialQuotes])
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<string>('')

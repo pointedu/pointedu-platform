@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AcademicCapIcon,
@@ -35,8 +35,13 @@ const categoryLabels: Record<string, string> = {
 
 export default function ProgramList({ initialPrograms }: { initialPrograms: Program[] }) {
   const router = useRouter()
-  const [programs, _setPrograms] = useState(initialPrograms)
+  const [programs, setPrograms] = useState(initialPrograms)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // initialPrograms가 변경되면 상태 업데이트
+  useEffect(() => {
+    setPrograms(initialPrograms)
+  }, [initialPrograms])
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({

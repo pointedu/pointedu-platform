@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ClockIcon,
@@ -146,9 +146,15 @@ const sortOptions = [
 
 export default function RequestList({ initialRequests, availableInstructors, schools, programs, transportSettings }: RequestListProps) {
   const router = useRouter()
-  const [requests] = useState(initialRequests)
+  const [requests, setRequests] = useState(initialRequests)
   const [filteredRequests, setFilteredRequests] = useState(initialRequests)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // initialRequests가 변경되면 상태 업데이트
+  useEffect(() => {
+    setRequests(initialRequests)
+    setFilteredRequests(initialRequests)
+  }, [initialRequests])
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})
   const [currentSort, setCurrentSort] = useState<{ key: string; label: string; direction: 'asc' | 'desc' } | null>(null)
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null })

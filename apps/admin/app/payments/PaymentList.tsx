@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CurrencyDollarIcon,
@@ -98,8 +98,13 @@ const nextStatusLabel: Record<string, string> = {
 
 export default function PaymentList({ initialPayments, summary }: PaymentListProps) {
   const router = useRouter()
-  const [payments, _setPayments] = useState(initialPayments)
+  const [payments, setPayments] = useState(initialPayments)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+
+  // initialPayments가 변경되면 상태 업데이트
+  useEffect(() => {
+    setPayments(initialPayments)
+  }, [initialPayments])
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
