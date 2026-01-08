@@ -22,6 +22,7 @@ import {
   CheckIcon,
   XMarkIcon,
   ShieldCheckIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import {
   INTERNAL_GRADES,
@@ -101,6 +102,7 @@ const filters = [
       { value: 'ACTIVE', label: '활동중' },
       { value: 'INACTIVE', label: '휴면' },
       { value: 'ON_LEAVE', label: '휴직' },
+      { value: 'TERMINATED', label: '퇴사' },
       { value: 'REJECTED', label: '거절됨' },
     ],
   },
@@ -311,12 +313,30 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       })
 
       if (res.ok) {
+        const savedInstructor = await res.json()
+        // 성공 시 데이터가 data 속성에 있을 수 있음
+        const newInstructor = savedInstructor.data || savedInstructor
+
+        if (!editingInstructor && newInstructor.id) {
+          // 새 강사 등록 시 로컬 상태에 즉시 추가
+          const formattedInstructor = {
+            ...newInstructor,
+            _count: newInstructor._count || { assignments: 0, payments: 0 },
+          }
+          setInstructors(prev => [...prev, formattedInstructor])
+          setFilteredInstructors(prev => [...prev, formattedInstructor])
+        }
+
         setIsFormModalOpen(false)
         resetForm()
         router.refresh()
+      } else {
+        const errorData = await res.json()
+        alert(errorData.error || '저장에 실패했습니다.')
       }
     } catch (error) {
       console.error('Failed to save instructor:', error)
+      alert('저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -364,6 +384,47 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       }
     } catch (error) {
       console.error('Failed to reject instructor:', error)
+    }
+  }
+
+  // 강사 퇴사 처리
+  const handleTerminate = async (id: string, name: string) => {
+    const confirmMessage = `${name} 강사를 퇴사 처리하시겠습니까?\n\n진행 중인 수업 배정도 함께 취소됩니다.`
+    if (!confirm(confirmMessage)) return
+
+    const reason = prompt('퇴사 사유를 입력해주세요 (선택):')
+
+    try {
+      const res = await fetch(`/api/instructors/${id}/terminate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: reason || undefined,
+          cancelPendingAssignments: true,
+        }),
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        if (result.cancelledAssignments > 0) {
+          alert(`퇴사 처리 완료\n\n취소된 수업 배정: ${result.cancelledAssignments}건${result.inProgressAssignments > 0 ? `\n진행 중인 수업: ${result.inProgressAssignments}건 (수동 처리 필요)` : ''}`)
+        }
+        // 로컬 상태 업데이트
+        setInstructors(prev =>
+          prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
+        )
+        setFilteredInstructors(prev =>
+          prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
+        )
+        setSelectedInstructor(null)
+        router.refresh()
+      } else {
+        const errorData = await res.json()
+        alert(errorData.error || '퇴사 처리에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to terminate instructor:', error)
+      alert('퇴사 처리 중 오류가 발생했습니다.')
     }
   }
 
@@ -638,6 +699,18 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
+                          {instructor.status !== 'TERMINATED' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleTerminate(instructor.id, instructor.name)
+                              }}
+                              className="text-orange-600 hover:text-orange-900 mr-2"
+                              title="퇴사 처리"
+                            >
+                              <NoSymbolIcon className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -896,6 +969,15 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               >
                 삭제
               </button>
+              {selectedInstructor.status !== 'TERMINATED' && (
+                <button
+                  type="button"
+                  onClick={() => handleTerminate(selectedInstructor.id, selectedInstructor.name)}
+                  className="rounded-md bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-100"
+                >
+                  퇴사 처리
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedInstructor(null)}

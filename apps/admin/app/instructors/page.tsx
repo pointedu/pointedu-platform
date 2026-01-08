@@ -1,4 +1,4 @@
-export const revalidate = 300 // Revalidate every 5 minutes
+export const revalidate = 0 // Always fetch fresh data
 
 import { prisma } from '@pointedu/database'
 import InstructorList from './InstructorList'

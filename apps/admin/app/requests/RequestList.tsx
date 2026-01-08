@@ -356,6 +356,43 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     }
   }
 
+  // 수업 취소 핸들러
+  const handleCancelAssignment = async (requestId: string, assignmentId: string, instructorName: string) => {
+    const confirmMessage = `${instructorName} 강사의 수업 배정을 취소하시겠습니까?`
+    if (!confirm(confirmMessage)) return
+
+    const reason = prompt('취소 사유를 입력해주세요 (선택):')
+    const reassign = confirm('다른 강사에게 재배정하시겠습니까?')
+
+    setLoading(true)
+
+    try {
+      const res = await fetch(`/api/requests/${requestId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignmentId,
+          reason: reason || undefined,
+          reassign,
+        }),
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        alert(result.message || '수업이 취소되었습니다.')
+        router.refresh()
+      } else {
+        const errorData = await res.json()
+        alert(errorData.error || '수업 취소에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to cancel assignment:', error)
+      alert('수업 취소 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getRecommendedInstructors = () => {
     if (!selectedRequest) return availableInstructors
 
@@ -876,14 +913,39 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                     <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
                       <div>
                         <p className="font-medium">{assignment.instructor.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {assignment.status === 'CANCELLED' ? '취소됨' :
+                           assignment.status === 'CONFIRMED' ? '확정됨' :
+                           assignment.status === 'COMPLETED' ? '완료' : '제안됨'}
+                        </p>
                       </div>
-                      <span className={`text-sm px-2 py-1 rounded ${
-                        assignment.status === 'CONFIRMED'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {assignment.status === 'CONFIRMED' ? '확정됨' : '제안됨'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm px-2 py-1 rounded ${
+                          assignment.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                            : assignment.status === 'CONFIRMED'
+                            ? 'bg-green-100 text-green-800'
+                            : assignment.status === 'COMPLETED'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {assignment.status === 'CANCELLED' ? '취소됨' :
+                           assignment.status === 'CONFIRMED' ? '확정됨' :
+                           assignment.status === 'COMPLETED' ? '완료' : '제안됨'}
+                        </span>
+                        {assignment.status !== 'CANCELLED' && assignment.status !== 'COMPLETED' && (
+                          <button
+                            onClick={() => handleCancelAssignment(
+                              detailRequest.id,
+                              assignment.id,
+                              assignment.instructor.name
+                            )}
+                            className="text-xs text-red-600 hover:text-red-800 underline"
+                          >
+                            취소
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
