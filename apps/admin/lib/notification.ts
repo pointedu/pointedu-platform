@@ -34,6 +34,9 @@ interface SolapiMessage {
     templateId: string
     variables?: Record<string, string>
     disableSms?: boolean
+    bms?: {
+      targeting: string
+    }
   }
 }
 
@@ -87,13 +90,13 @@ async function sendSolapiMessage(
       from: senderNumber.replace(/-/g, ''),
     }
 
-    // 카카오 알림톡 사용 (템플릿이 있는 경우)
+    // 카카오 브랜드 템플릿 사용 (템플릿이 있는 경우)
     if (pfId && kakaoOptions?.templateId) {
-      message.type = 'ATA' // 알림톡 타입 명시
       message.kakaoOptions = {
         pfId,
         templateId: kakaoOptions.templateId,
         disableSms: false, // SMS 대체 발송 활성화
+        bms: { targeting: 'I' }, // 브랜드 템플릿 설정
         ...(kakaoOptions.variables && { variables: kakaoOptions.variables }),
       }
     } else {
