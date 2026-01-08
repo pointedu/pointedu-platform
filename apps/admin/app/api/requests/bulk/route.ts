@@ -49,18 +49,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 요청 번호 생성 함수
-    const generateRequestNumber = async () => {
-      const today = new Date()
-      const dateStr = today.toISOString().slice(2, 10).replace(/-/g, '')
-      const count = await prisma.schoolRequest.count({
-        where: {
-          requestNumber: { startsWith: `REQ-${dateStr}` },
-        },
-      })
-      return `REQ-${dateStr}-${String(count + 1).padStart(3, '0')}`
-    }
-
     // 트랜잭션으로 대량 생성
     const createdRequests = await prisma.$transaction(async (tx) => {
       const results = []
@@ -87,9 +75,8 @@ export async function POST(request: NextRequest) {
             customProgram: item.customProgram || null,
             sessions: item.sessions || 2,
             studentCount: item.studentCount || 25,
-            targetGrade: item.targetGrade || null,
+            targetGrade: item.targetGrade || '',
             desiredDate: new Date(scheduledDate),
-            preferredDates: [scheduledDate],
             requirements: item.note || null,
             status: item.instructorId ? 'ASSIGNED' : 'SUBMITTED',
           },

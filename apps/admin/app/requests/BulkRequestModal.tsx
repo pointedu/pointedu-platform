@@ -149,7 +149,7 @@ export default function BulkRequestModal({
   }
 
   // 시간 옵션 생성 (08:00 ~ 17:00)
-  const timeOptions = []
+  const timeOptions: string[] = []
   for (let h = 8; h <= 17; h++) {
     for (let m = 0; m < 60; m += 10) {
       const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
