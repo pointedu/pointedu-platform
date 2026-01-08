@@ -17,11 +17,6 @@ interface GradeRules {
 }
 
 interface FeeRules {
-  baseSessionFee: {
-    elementary: number
-    middle: number
-    high: number
-  }
   sessionFees: {
     [key: string]: number
   }
@@ -32,11 +27,12 @@ interface FeeRules {
     weekend: number
     holiday: number
     emergency: number
-    multipleClasses: number
+  }
+  externalInstructor?: {
+    allowCustomFee: boolean
+    description: string
   }
   taxWithholdingRate: number
-  minSessionFee: number
-  maxSessionFee: number
 }
 
 const GRADE_ICONS: { [key: string]: string } = {
@@ -351,7 +347,7 @@ export default function InstructorRulesSettings() {
             {/* 교통비 */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">거리별 교통비</h3>
-              <div className="grid grid-cols-6 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 {Object.entries(feeRules.transportFees).map(([range, fee]) => (
                   <div key={range} className="border rounded-lg p-3 text-center bg-gray-50">
                     <div className="text-xs text-gray-600 mb-1">{range}km</div>
@@ -371,85 +367,76 @@ export default function InstructorRulesSettings() {
             {/* 특수 수당 */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">특수 수당</h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="border rounded-lg p-3">
                   <div className="text-sm text-gray-600 mb-1">주말 수업</div>
                   <input
                     type="number"
-                    value={feeRules.specialAllowances.weekend}
+                    value={feeRules.specialAllowances?.weekend || 0}
                     onChange={(e) => updateFeeRule('specialAllowances.weekend', parseInt(e.target.value) || 0)}
                     className="w-full rounded border-gray-300 text-sm"
                     step="5000"
                   />
+                  <div className="text-xs text-gray-500 mt-1">원</div>
                 </div>
                 <div className="border rounded-lg p-3">
                   <div className="text-sm text-gray-600 mb-1">공휴일 수업</div>
                   <input
                     type="number"
-                    value={feeRules.specialAllowances.holiday}
+                    value={feeRules.specialAllowances?.holiday || 0}
                     onChange={(e) => updateFeeRule('specialAllowances.holiday', parseInt(e.target.value) || 0)}
                     className="w-full rounded border-gray-300 text-sm"
                     step="5000"
                   />
+                  <div className="text-xs text-gray-500 mt-1">원</div>
                 </div>
                 <div className="border rounded-lg p-3">
                   <div className="text-sm text-gray-600 mb-1">긴급 배정 (3일 이내)</div>
                   <input
                     type="number"
-                    value={feeRules.specialAllowances.emergency}
+                    value={feeRules.specialAllowances?.emergency || 0}
                     onChange={(e) => updateFeeRule('specialAllowances.emergency', parseInt(e.target.value) || 0)}
                     className="w-full rounded border-gray-300 text-sm"
                     step="5000"
                   />
-                </div>
-                <div className="border rounded-lg p-3">
-                  <div className="text-sm text-gray-600 mb-1">하루 3개 이상 수업</div>
-                  <input
-                    type="number"
-                    value={feeRules.specialAllowances.multipleClasses}
-                    onChange={(e) => updateFeeRule('specialAllowances.multipleClasses', parseInt(e.target.value) || 0)}
-                    className="w-full rounded border-gray-300 text-sm"
-                    step="5000"
-                  />
+                  <div className="text-xs text-gray-500 mt-1">원</div>
                 </div>
               </div>
+            </div>
+
+            {/* 외부강사/긴급구인 안내 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-amber-800 mb-2">외부강사 / 긴급구인 강사</h3>
+              <p className="text-sm text-amber-700">
+                외부강사, 긴급구인 강사는 관리자가 수업 배정 시 별도로 강사비를 지정합니다.
+              </p>
             </div>
 
             {/* 기타 설정 */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">기타 설정</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="border rounded-lg p-3">
                   <div className="text-sm text-gray-600 mb-1">원천징수율 (%)</div>
                   <input
                     type="number"
-                    value={(feeRules.taxWithholdingRate * 100).toFixed(1)}
+                    value={((feeRules.taxWithholdingRate || 0.033) * 100).toFixed(1)}
                     onChange={(e) => updateFeeRule('taxWithholdingRate', (parseFloat(e.target.value) || 0) / 100)}
                     className="w-full rounded border-gray-300 text-sm"
                     step="0.1"
                     min="0"
                     max="50"
                   />
+                  <div className="text-xs text-gray-500 mt-1">기본값: 3.3%</div>
                 </div>
-                <div className="border rounded-lg p-3">
-                  <div className="text-sm text-gray-600 mb-1">최소 강사비</div>
-                  <input
-                    type="number"
-                    value={feeRules.minSessionFee}
-                    onChange={(e) => updateFeeRule('minSessionFee', parseInt(e.target.value) || 0)}
-                    className="w-full rounded border-gray-300 text-sm"
-                    step="5000"
-                  />
-                </div>
-                <div className="border rounded-lg p-3">
-                  <div className="text-sm text-gray-600 mb-1">최대 강사비</div>
-                  <input
-                    type="number"
-                    value={feeRules.maxSessionFee}
-                    onChange={(e) => updateFeeRule('maxSessionFee', parseInt(e.target.value) || 0)}
-                    className="w-full rounded border-gray-300 text-sm"
-                    step="10000"
-                  />
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  <div className="text-sm text-gray-600 mb-1">강사비 계산 예시</div>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div>3차시 수업 + 50km 이동:</div>
+                    <div className="font-medium text-gray-700">
+                      {(feeRules.sessionFees?.[3] || 90000).toLocaleString()}원 + {(feeRules.transportFees?.['41-69'] || 15000).toLocaleString()}원 = {((feeRules.sessionFees?.[3] || 90000) + (feeRules.transportFees?.['41-69'] || 15000)).toLocaleString()}원
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

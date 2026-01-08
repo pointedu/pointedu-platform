@@ -5,41 +5,34 @@ import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../.
 
 // 기본 강사비 규정
 const DEFAULT_FEE_RULES = {
-  // 기본 강사비 (차시당)
-  baseSessionFee: {
-    elementary: 35000,  // 초등
-    middle: 35000,      // 중등
-    high: 40000,        // 고등
-  },
-  // 차시별 강사비 (총액)
+  // 차시별 강사비 (총액) - 내부 강사 기준
   sessionFees: {
-    2: 70000,   // 2차시
-    3: 100000,  // 3차시
-    4: 120000,  // 4차시
-    5: 135000,  // 5차시
-    6: 150000,  // 6차시
+    2: 70000,    // 2차시
+    3: 90000,    // 3차시
+    4: 110000,   // 4차시
+    5: 130000,   // 5차시
+    6: 150000,   // 6차시
   },
   // 교통비 규정 (거리 기반)
   transportFees: {
-    '0-20': 0,       // 20km 이내: 무료
-    '21-40': 15000,  // 21-40km
-    '41-60': 25000,  // 41-60km
-    '61-80': 35000,  // 61-80km
-    '81-100': 45000, // 81-100km
-    '101+': 55000,   // 100km 초과
+    '0-40': 0,        // 40km 이내: 무료
+    '41-69': 15000,   // 41-69km
+    '70-99': 30000,   // 70-99km
+    '100+': 40000,    // 100km 이상
   },
   // 특수 수당
   specialAllowances: {
     weekend: 10000,      // 주말 수업 추가
     holiday: 20000,      // 공휴일 수업 추가
     emergency: 20000,    // 긴급 배정 (3일 이내)
-    multipleClasses: 10000, // 하루 3개 이상 수업
+  },
+  // 외부강사/긴급구인 설정
+  externalInstructor: {
+    allowCustomFee: true,  // 별도 강사비 지정 가능
+    description: '외부강사, 긴급구인 강사는 관리자가 별도로 강사비 지정',
   },
   // 원천징수율
   taxWithholdingRate: 0.033,  // 3.3%
-  // 최소/최대 강사비
-  minSessionFee: 30000,
-  maxSessionFee: 200000,
 }
 
 // GET - 강사비 규정 조회
@@ -71,13 +64,6 @@ export const POST = withAdminAuth(async (request) => {
     }
 
     // 유효성 검사
-    if (feeRules.baseSessionFee) {
-      const { elementary, middle, high } = feeRules.baseSessionFee
-      if (elementary < 0 || middle < 0 || high < 0) {
-        return errorResponse('기본 강사비는 0 이상이어야 합니다.', 400)
-      }
-    }
-
     if (feeRules.sessionFees) {
       for (const [sessions, fee] of Object.entries(feeRules.sessionFees)) {
         if (typeof fee !== 'number' || fee < 0) {
