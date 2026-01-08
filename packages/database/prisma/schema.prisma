@@ -60,6 +60,27 @@ enum InstructorStatus {
   REJECTED       // 거절됨
 }
 
+// 강사 등급 (내부 강사)
+enum InstructorGrade {
+  LEVEL1         // 신입강사 (수업 10회 미만)
+  LEVEL2         // 일반강사 (수업 10회+, 평점 4.0+)
+  LEVEL3         // 우수강사 (수업 50회+, 평점 4.5+)
+  LEVEL4         // 수석강사 (수업 100회+, 평점 4.8+)
+}
+
+// 강사 유형
+enum InstructorType {
+  INTERNAL       // 내부 강사 (등급 적용)
+  EXTERNAL       // 외부 강사 (별도 등급)
+}
+
+// 외부 강사 등급
+enum ExternalInstructorGrade {
+  EXTERNAL_BASIC      // 외부 기본
+  EXTERNAL_PREMIUM    // 외부 프리미엄 (전문가)
+  EXTERNAL_VIP        // 외부 VIP (특별 계약)
+}
+
 model Instructor {
   id            String            @id @default(cuid())
   userId        String            @unique
@@ -84,6 +105,13 @@ model Instructor {
   maxDistanceKm Int               @default(60)
   availableDays String[]          // 가능 요일 ["월", "화", "수"]
 
+  // 강사 유형 및 등급
+  instructorType     InstructorType          @default(INTERNAL)
+  grade              InstructorGrade         @default(LEVEL1)
+  externalGrade      ExternalInstructorGrade? // 외부 강사인 경우
+  gradeUpdatedAt     DateTime?               // 등급 변경일
+  feeMultiplier      Decimal                 @default(1.00) @db.Decimal(4, 2) // 강사비 배수 (1.00, 1.05, 1.10, 1.15)
+
   // 상태
   status        InstructorStatus  @default(ACTIVE)
   rating        Decimal?          @db.Decimal(3, 2) // 평점 (0.00-5.00)
@@ -107,6 +135,8 @@ model Instructor {
 
   @@index([homeBase])
   @@index([status])
+  @@index([instructorType])
+  @@index([grade])
   @@map("instructors")
 }
 
@@ -350,6 +380,12 @@ model SchoolRequest {
   status        RequestStatus   @default(SUBMITTED)
   priority      RequestPriority @default(NORMAL)
 
+  // 수업 공개 설정 (강사 배정 안될 때)
+  isPublic           Boolean     @default(false)   // 전체 강사에게 공개 여부
+  publicAt           DateTime?                     // 공개 시작일
+  publicNotifiedAt   DateTime?                     // 전체 알림 발송일
+  minInstructorGrade InstructorGrade?              // 최소 지원 가능 등급
+
   // 메모
   requirements  String?         @db.Text
   notes         String?         @db.Text
@@ -373,6 +409,8 @@ model SchoolRequest {
   @@index([schoolId])
   @@index([desiredDate])
   @@index([status, requestDate])
+  @@index([isPublic])
+  @@index([isPublic, status])
   @@map("school_requests")
 }
 

@@ -225,6 +225,39 @@ export async function sendCompletionNotification(data: NotificationData): Promis
   return sendSolapiMessage(data.phoneNumber, smsText)
 }
 
+// 수업 공개 알림 (전체 강사 대상)
+export async function sendPublicClassNotification(data: {
+  phoneNumber: string
+  instructorName: string
+  schoolName: string
+  programName: string
+  date: string
+  sessions: number
+}): Promise<NotificationResult> {
+  const apiKey = process.env.SOLAPI_API_KEY
+  if (!apiKey) {
+    return { success: false, error: 'Credentials not configured' }
+  }
+
+  const templateId = process.env.SOLAPI_TEMPLATE_PUBLIC_CLASS
+
+  // SMS 대체 메시지
+  const smsText = `[포인트교육] ${data.instructorName}님, 새로운 수업이 공개되었습니다.\n\n학교: ${data.schoolName}\n프로그램: ${data.programName}\n일정: ${data.date}\n차시: ${data.sessions}차시\n\n관리자 페이지에서 지원해주세요.`
+
+  // 카카오 알림톡 템플릿 변수
+  const variables = {
+    '#{강사명}': data.instructorName,
+    '#{학교명}': data.schoolName,
+    '#{과목명}': data.programName,
+    '#{수업일}': data.date,
+    '#{차시}': String(data.sessions),
+  }
+
+  return sendSolapiMessage(data.phoneNumber, smsText,
+    templateId ? { templateId, variables } : undefined
+  )
+}
+
 // 테스트 알림
 export async function sendTestNotification(phoneNumber: string): Promise<NotificationResult> {
   const apiKey = process.env.SOLAPI_API_KEY
