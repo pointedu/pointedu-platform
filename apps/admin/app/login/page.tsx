@@ -44,10 +44,10 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Image
-            src="/images/pointedu-logo.png"
+            src="/images/pointedu-logo-full.png"
             alt="포인트교육(주)"
-            width={280}
-            height={60}
+            width={360}
+            height={72}
             className="mx-auto"
             priority
           />
