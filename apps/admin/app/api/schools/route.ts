@@ -14,7 +14,7 @@ const schoolSchema = z.object({
   region: z.string().optional().nullable(),
   phoneNumber: z.string().optional().nullable(),
   faxNumber: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal('')),
   distanceKm: z.union([z.string(), z.number()]).optional().nullable(),
   transportFee: z.union([z.string(), z.number()]).optional().nullable(),
   totalStudents: z.union([z.string(), z.number()]).optional().nullable(),
