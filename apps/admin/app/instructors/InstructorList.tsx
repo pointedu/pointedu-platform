@@ -21,7 +21,13 @@ import {
   TrashIcon,
   CheckIcon,
   XMarkIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
+import {
+  INTERNAL_GRADES,
+  EXTERNAL_GRADES,
+  getGradeBadgeData,
+} from '../../lib/instructor-grade'
 
 interface Instructor {
   id: string
@@ -45,6 +51,10 @@ interface Instructor {
   certifications?: string[]
   notes?: string | null
   createdAt?: string
+  instructorType?: 'INTERNAL' | 'EXTERNAL'
+  grade?: string | null
+  externalGrade?: string | null
+  feeMultiplier?: number
   _count: {
     assignments: number
     payments: number
@@ -74,6 +84,14 @@ const statusLabels = {
 }
 
 const filters = [
+  {
+    key: 'instructorType',
+    label: '강사 유형',
+    options: [
+      { value: 'INTERNAL', label: '내부 강사' },
+      { value: 'EXTERNAL', label: '외부 강사' },
+    ],
+  },
   {
     key: 'status',
     label: '상태',
@@ -139,6 +157,16 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Grade modal state
+  const [isGradeModalOpen, setIsGradeModalOpen] = useState(false)
+  const [gradeLoading, setGradeLoading] = useState(false)
+  const [gradeFormData, setGradeFormData] = useState({
+    instructorType: 'INTERNAL' as 'INTERNAL' | 'EXTERNAL',
+    grade: 'LEVEL1',
+    externalGrade: 'EXTERNAL_BASIC',
+  })
+
   const [formData, setFormData] = useState({
     name: '',
     homeBase: '영주',
@@ -181,6 +209,10 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
 
     if (filters.rangeKm?.length > 0) {
       result = result.filter((i) => filters.rangeKm.includes(i.rangeKm))
+    }
+
+    if (filters.instructorType?.length > 0) {
+      result = result.filter((i) => filters.instructorType.includes(i.instructorType || 'INTERNAL'))
     }
 
     // 정렬 적용
@@ -329,6 +361,66 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     }
   }
 
+  // 등급 모달 열기
+  const openGradeModal = (instructor: Instructor) => {
+    setEditingInstructor(instructor)
+    setGradeFormData({
+      instructorType: instructor.instructorType || 'INTERNAL',
+      grade: instructor.grade || 'LEVEL1',
+      externalGrade: instructor.externalGrade || 'EXTERNAL_BASIC',
+    })
+    setSelectedInstructor(null)
+    setIsGradeModalOpen(true)
+  }
+
+  // 등급 저장
+  const handleGradeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingInstructor) return
+    setGradeLoading(true)
+
+    try {
+      const res = await fetch(`/api/instructors/${editingInstructor.id}/grade`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instructorType: gradeFormData.instructorType,
+          grade: gradeFormData.instructorType === 'INTERNAL' ? gradeFormData.grade : null,
+          externalGrade: gradeFormData.instructorType === 'EXTERNAL' ? gradeFormData.externalGrade : null,
+        }),
+      })
+
+      if (res.ok) {
+        setIsGradeModalOpen(false)
+        setEditingInstructor(null)
+        router.refresh()
+      } else {
+        const data = await res.json()
+        alert(data.error || '등급 변경에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to update grade:', error)
+      alert('등급 변경에 실패했습니다.')
+    } finally {
+      setGradeLoading(false)
+    }
+  }
+
+  // 등급 배지 렌더링
+  const renderGradeBadge = (instructor: Instructor) => {
+    const badge = getGradeBadgeData(
+      instructor.instructorType || 'INTERNAL',
+      instructor.grade || null,
+      instructor.externalGrade || null
+    )
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${badge.bgColor} ${badge.color}`}>
+        {badge.icon && <span>{badge.icon}</span>}
+        {badge.label}
+      </span>
+    )
+  }
+
   const toggleSubject = (subject: string) => {
     setFormData(prev => ({
       ...prev,
@@ -418,6 +510,9 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                   이름
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  등급
+                </th>
+                <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                   거주지
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -443,7 +538,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
             <tbody className="divide-y divide-gray-200">
               {filteredInstructors.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-500">
+                  <td colSpan={9} className="py-12 text-center text-gray-500">
                     {instructors.length === 0
                       ? '등록된 강사가 없습니다.'
                       : '검색 결과가 없습니다.'}
@@ -459,6 +554,9 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
                       {instructor.name}
                       <div className="text-xs text-gray-500">{instructor.phoneNumber}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm">
+                      {renderGradeBadge(instructor)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
                       {instructor.homeBase}
@@ -517,9 +615,20 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              openGradeModal(instructor)
+                            }}
+                            className="text-purple-600 hover:text-purple-900 mr-2"
+                            title="등급 변경"
+                          >
+                            <ShieldCheckIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
                               openEditModal(instructor)
                             }}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            className="text-blue-600 hover:text-blue-900 mr-2"
+                            title="수정"
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
@@ -529,6 +638,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                               handleDelete(instructor.id)
                             }}
                             className="text-red-600 hover:text-red-900"
+                            title="삭제"
                           >
                             <TrashIcon className="h-4 w-4" />
                           </button>
@@ -576,13 +686,22 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                     </span>
                   )}
                 </div>
-                <span
-                  className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                    statusColors[selectedInstructor.status as keyof typeof statusColors]
-                  }`}
-                >
-                  {statusLabels[selectedInstructor.status as keyof typeof statusLabels]}
-                </span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      statusColors[selectedInstructor.status as keyof typeof statusColors]
+                    }`}
+                  >
+                    {statusLabels[selectedInstructor.status as keyof typeof statusLabels]}
+                  </span>
+                  {renderGradeBadge(selectedInstructor)}
+                  <button
+                    onClick={() => openGradeModal(selectedInstructor)}
+                    className="text-xs text-purple-600 hover:text-purple-800 underline ml-1"
+                  >
+                    등급 변경
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -961,6 +1080,143 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? '저장 중...' : editingInstructor ? '수정' : '등록'}
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Grade Change Modal */}
+      <FormModal
+        isOpen={isGradeModalOpen}
+        onClose={() => {
+          setIsGradeModalOpen(false)
+          setEditingInstructor(null)
+        }}
+        title={`강사 등급 변경 - ${editingInstructor?.name || ''}`}
+        size="md"
+      >
+        <form onSubmit={handleGradeSubmit} className="space-y-6">
+          {/* 강사 유형 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">강사 유형</label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="instructorType"
+                  value="INTERNAL"
+                  checked={gradeFormData.instructorType === 'INTERNAL'}
+                  onChange={(e) => setGradeFormData({ ...gradeFormData, instructorType: e.target.value as 'INTERNAL' | 'EXTERNAL' })}
+                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-900">내부 강사</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="instructorType"
+                  value="EXTERNAL"
+                  checked={gradeFormData.instructorType === 'EXTERNAL'}
+                  onChange={(e) => setGradeFormData({ ...gradeFormData, instructorType: e.target.value as 'INTERNAL' | 'EXTERNAL' })}
+                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-900">외부 강사</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 등급 선택 */}
+          {gradeFormData.instructorType === 'INTERNAL' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">내부 강사 등급</label>
+              <div className="space-y-3">
+                {Object.entries(INTERNAL_GRADES).map(([key, info]) => (
+                  <label
+                    key={key}
+                    className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                      gradeFormData.grade === key
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="grade"
+                      value={key}
+                      checked={gradeFormData.grade === key}
+                      onChange={(e) => setGradeFormData({ ...gradeFormData, grade: e.target.value })}
+                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${info.bgColor} ${info.color}`}>
+                          {info.nameKr}
+                        </span>
+                        <span className="text-xs text-gray-500">강사비 ×{info.feeMultiplier}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {info.benefits.join(' / ')}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">외부 강사 등급</label>
+              <div className="space-y-3">
+                {Object.entries(EXTERNAL_GRADES).map(([key, info]) => (
+                  <label
+                    key={key}
+                    className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                      gradeFormData.externalGrade === key
+                        ? 'border-teal-500 bg-teal-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="externalGrade"
+                      value={key}
+                      checked={gradeFormData.externalGrade === key}
+                      onChange={(e) => setGradeFormData({ ...gradeFormData, externalGrade: e.target.value })}
+                      className="h-4 w-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                    />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${info.bgColor} ${info.color}`}>
+                          {info.nameKr}
+                        </span>
+                        <span className="text-xs text-gray-500">강사비 ×{info.feeMultiplier}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {info.benefits.join(' / ')}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => {
+                setIsGradeModalOpen(false)
+                setEditingInstructor(null)
+              }}
+              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={gradeLoading}
+              className="rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 disabled:opacity-50"
+            >
+              {gradeLoading ? '저장 중...' : '등급 변경'}
             </button>
           </div>
         </form>
