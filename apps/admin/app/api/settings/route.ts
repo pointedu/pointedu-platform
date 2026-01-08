@@ -26,10 +26,10 @@ export const POST = withAdminAuth(async (request) => {
       return errorResponse('설정 데이터가 필요합니다.', 400)
     }
 
-    // Update each setting
-    const updates = await Promise.all(
-      settings.map(async (setting: { key: string; value: string }) => {
-        return prisma.setting.upsert({
+    // 트랜잭션으로 일괄 업데이트 (성능 개선)
+    const updates = await prisma.$transaction(
+      settings.map((setting: { key: string; value: string }) =>
+        prisma.setting.upsert({
           where: { key: setting.key },
           update: { value: setting.value },
           create: {
@@ -38,10 +38,10 @@ export const POST = withAdminAuth(async (request) => {
             category: 'GENERAL',
           },
         })
-      })
+      )
     )
 
-    return successResponse(updates)
+    return successResponse({ count: updates.length, success: true })
   } catch (error) {
     console.error('Failed to update settings:', error)
     return errorResponse('설정 수정에 실패했습니다.', 500)
