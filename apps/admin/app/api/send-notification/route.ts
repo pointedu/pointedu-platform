@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
       messages = validInstructors.map(instructor => ({
         to: instructor.phoneNumber.replace(/-/g, ''),
         from: senderNumber.replace(/-/g, ''),
+        type: 'ATA',  // 알림톡 타입 명시
         kakaoOptions: {
           pfId: pfId,
           templateId: templateId,
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
             message,
             ...templateData,
           }),
+          disableSms: false,  // 알림톡 실패 시 SMS 대체 발송
         },
       }))
     } else {
