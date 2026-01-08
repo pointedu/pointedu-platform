@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
 import Modal from '../../components/Modal'
@@ -169,6 +169,10 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   // Grade modal state
   const [isGradeModalOpen, setIsGradeModalOpen] = useState(false)
   const [gradeLoading, setGradeLoading] = useState(false)
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [gradeFormData, setGradeFormData] = useState({
     instructorType: 'INTERNAL' as 'INTERNAL' | 'EXTERNAL',
     grade: 'LEVEL1',
@@ -342,19 +346,27 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/instructors/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        setSelectedInstructor(null)
+        startTransition(() => {
+          setSelectedInstructor(null)
+          // 로컬 상태에서 즉시 제거
+          setInstructors(prev => prev.filter(i => i.id !== id))
+          setFilteredInstructors(prev => prev.filter(i => i.id !== id))
+        })
         router.refresh()
       }
     } catch (error) {
       console.error('Failed to delete instructor:', error)
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   const handleApprove = async (id: string) => {
     if (!confirm('이 강사의 가입을 승인하시겠습니까?')) return
@@ -388,12 +400,13 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   }
 
   // 강사 퇴사 처리
-  const handleTerminate = async (id: string, name: string) => {
+  const handleTerminate = useCallback(async (id: string, name: string) => {
     const confirmMessage = `${name} 강사를 퇴사 처리하시겠습니까?\n\n진행 중인 수업 배정도 함께 취소됩니다.`
     if (!confirm(confirmMessage)) return
 
     const reason = prompt('퇴사 사유를 입력해주세요 (선택):')
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/instructors/${id}/terminate`, {
         method: 'POST',
@@ -409,14 +422,16 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
         if (result.cancelledAssignments > 0) {
           alert(`퇴사 처리 완료\n\n취소된 수업 배정: ${result.cancelledAssignments}건${result.inProgressAssignments > 0 ? `\n진행 중인 수업: ${result.inProgressAssignments}건 (수동 처리 필요)` : ''}`)
         }
-        // 로컬 상태 업데이트
-        setInstructors(prev =>
-          prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
-        )
-        setFilteredInstructors(prev =>
-          prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
-        )
-        setSelectedInstructor(null)
+        // 로컬 상태 업데이트 (non-blocking)
+        startTransition(() => {
+          setInstructors(prev =>
+            prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
+          )
+          setFilteredInstructors(prev =>
+            prev.map(i => i.id === id ? { ...i, status: 'TERMINATED' } : i)
+          )
+          setSelectedInstructor(null)
+        })
         router.refresh()
       } else {
         const errorData = await res.json()
@@ -425,8 +440,10 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     } catch (error) {
       console.error('Failed to terminate instructor:', error)
       alert('퇴사 처리 중 오류가 발생했습니다.')
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   // 등급 모달 열기
   const openGradeModal = (instructor: Instructor) => {
@@ -705,10 +722,15 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                                 e.stopPropagation()
                                 handleTerminate(instructor.id, instructor.name)
                               }}
-                              className="text-orange-600 hover:text-orange-900 mr-2"
+                              disabled={actionLoading === instructor.id || isPending}
+                              className={`text-orange-600 hover:text-orange-900 mr-2 ${actionLoading === instructor.id ? 'opacity-50 cursor-wait' : ''}`}
                               title="퇴사 처리"
                             >
-                              <NoSymbolIcon className="h-4 w-4" />
+                              {actionLoading === instructor.id ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-600 border-t-transparent" />
+                              ) : (
+                                <NoSymbolIcon className="h-4 w-4" />
+                              )}
                             </button>
                           )}
                           <button
@@ -716,10 +738,15 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                               e.stopPropagation()
                               handleDelete(instructor.id)
                             }}
-                            className="text-red-600 hover:text-red-900"
+                            disabled={actionLoading === instructor.id || isPending}
+                            className={`text-red-600 hover:text-red-900 ${actionLoading === instructor.id ? 'opacity-50 cursor-wait' : ''}`}
                             title="삭제"
                           >
-                            <TrashIcon className="h-4 w-4" />
+                            {actionLoading === instructor.id ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                            ) : (
+                              <TrashIcon className="h-4 w-4" />
+                            )}
                           </button>
                         </>
                       )}
