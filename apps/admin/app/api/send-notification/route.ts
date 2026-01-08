@@ -28,7 +28,7 @@ function createSolapiHeaders() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { instructorIds, message, notificationType: _notificationType = 'sms' } = body
+    const { instructorIds, message, notificationType = 'sms' } = body
 
     if (!instructorIds || !Array.isArray(instructorIds) || instructorIds.length === 0) {
       return NextResponse.json({ error: '강사를 선택해주세요.' }, { status: 400 })
@@ -67,13 +67,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '발신번호가 설정되지 않았습니다.' }, { status: 500 })
     }
 
+    // 카카오톡 발송일 경우 PF ID와 템플릿 ID 확인
+    const pfId = process.env.SOLAPI_KAKAO_PF_ID?.trim()
+    const templateId = process.env.SOLAPI_KAKAO_TEMPLATE_ID?.trim()
+
     // 메시지 발송
-    const messages = validInstructors.map(instructor => ({
-      to: instructor.phoneNumber.replace(/-/g, ''),
-      from: senderNumber.replace(/-/g, ''),
-      type: 'SMS',
-      text: `[포인트교육] ${instructor.name}님, ${message}`,
-    }))
+    let messages
+
+    if (notificationType === 'kakao') {
+      // 카카오톡 알림톡 발송
+      if (!pfId || !templateId) {
+        return NextResponse.json({
+          error: '카카오톡 발송을 위한 설정(PF ID, 템플릿 ID)이 필요합니다.'
+        }, { status: 500 })
+      }
+
+      messages = validInstructors.map(instructor => ({
+        to: instructor.phoneNumber.replace(/-/g, ''),
+        from: senderNumber.replace(/-/g, ''),
+        kakaoOptions: {
+          pfId: pfId,
+          templateId: templateId,
+          variables: {
+            '#{이름}': instructor.name,
+            '#{내용}': message,
+          },
+        },
+      }))
+    } else {
+      // SMS 발송
+      messages = validInstructors.map(instructor => ({
+        to: instructor.phoneNumber.replace(/-/g, ''),
+        from: senderNumber.replace(/-/g, ''),
+        type: 'SMS',
+        text: `[포인트교육] ${instructor.name}님, ${message}`,
+      }))
+    }
 
     const headers = createSolapiHeaders()
     const response = await fetch('https://api.solapi.com/messages/v4/send-many', {
@@ -86,14 +115,17 @@ export async function POST(request: NextRequest) {
 
     console.log('Send notification response:', JSON.stringify(result, null, 2))
 
+    const typeLabel = notificationType === 'kakao' ? '카카오톡' : 'SMS'
+
     if (response.ok && result.groupId) {
       return NextResponse.json({
         success: true,
-        message: `${validInstructors.length}명의 강사에게 알림을 발송했습니다.`,
+        message: `${validInstructors.length}명의 강사에게 ${typeLabel} 알림을 발송했습니다.`,
         details: {
           groupId: result.groupId,
           sentTo: validInstructors.map(i => i.name),
           totalCount: validInstructors.length,
+          notificationType: typeLabel,
         },
       })
     } else {

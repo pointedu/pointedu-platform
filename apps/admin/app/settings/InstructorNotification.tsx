@@ -22,6 +22,7 @@ export default function InstructorNotification() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [notificationType, setNotificationType] = useState<'sms' | 'kakao'>('sms')
   const [loading, setLoading] = useState(false)
   const [fetchLoading, setFetchLoading] = useState(true)
   const [result, setResult] = useState<{
@@ -107,7 +108,7 @@ export default function InstructorNotification() {
         body: JSON.stringify({
           instructorIds: selectedIds,
           message: message.trim(),
-          notificationType: 'sms',
+          notificationType,
         }),
       })
 
@@ -141,13 +142,49 @@ export default function InstructorNotification() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">강사 알림 발송</h2>
             <p className="text-sm text-gray-500">
-              선택한 강사에게 SMS 알림을 발송합니다.
+              선택한 강사에게 SMS 또는 카카오톡 알림을 발송합니다.
             </p>
           </div>
         </div>
       </div>
 
       <div className="px-6 py-6 space-y-6">
+        {/* 발송 방식 선택 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            발송 방식
+          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="notificationType"
+                value="sms"
+                checked={notificationType === 'sms'}
+                onChange={() => setNotificationType('sms')}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="ml-2 text-sm text-gray-700">SMS 문자</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="notificationType"
+                value="kakao"
+                checked={notificationType === 'kakao'}
+                onChange={() => setNotificationType('kakao')}
+                className="h-4 w-4 text-yellow-500 focus:ring-yellow-500 border-gray-300"
+              />
+              <span className="ml-2 text-sm text-gray-700">카카오톡 알림</span>
+            </label>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            {notificationType === 'sms'
+              ? 'SMS는 모든 강사에게 발송됩니다.'
+              : '카카오톡은 포인트교육 채널을 친구 추가한 강사에게만 발송됩니다.'}
+          </p>
+        </div>
+
         {/* 검색 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -227,11 +264,11 @@ export default function InstructorNotification() {
             onChange={(e) => setMessage(e.target.value)}
             placeholder="강사에게 보낼 메시지를 입력하세요..."
             rows={3}
-            maxLength={80}
+            maxLength={notificationType === 'sms' ? 80 : 1000}
             className="w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">
-            메시지 앞에 "[포인트교육] {'{강사명}'}님," 이 자동으로 추가됩니다. ({message.length}/80자)
+            메시지 앞에 &quot;[포인트교육] {'강사명'}님,&quot; 이 자동으로 추가됩니다. ({message.length}/{notificationType === 'sms' ? 80 : 1000}자)
           </p>
         </div>
 
@@ -241,10 +278,14 @@ export default function InstructorNotification() {
             type="button"
             onClick={handleSend}
             disabled={loading || selectedIds.length === 0 || !message.trim()}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+              notificationType === 'kakao'
+                ? 'bg-yellow-500 hover:bg-yellow-400'
+                : 'bg-blue-600 hover:bg-blue-500'
+            }`}
           >
             <PaperAirplaneIcon className="h-4 w-4" />
-            {loading ? '발송 중...' : `${selectedIds.length}명에게 발송`}
+            {loading ? '발송 중...' : `${selectedIds.length}명에게 ${notificationType === 'kakao' ? '카카오톡' : 'SMS'} 발송`}
           </button>
         </div>
 
@@ -286,7 +327,8 @@ export default function InstructorNotification() {
           <h3 className="text-sm font-medium text-gray-900 mb-2">사용 안내</h3>
           <ul className="text-xs text-gray-600 space-y-1">
             <li>• 활성 상태이고 전화번호가 등록된 강사만 목록에 표시됩니다.</li>
-            <li>• 메시지는 SMS로 발송되며, 80자 이내로 작성해주세요.</li>
+            <li>• <strong>SMS</strong>: 모든 강사에게 발송 가능, 80자 이내</li>
+            <li>• <strong>카카오톡</strong>: 포인트교육 채널 친구에게만 발송, 1000자 이내</li>
             <li>• 전체 선택 버튼을 사용하여 모든 강사를 한번에 선택할 수 있습니다.</li>
             <li>• 발송 후 결과를 확인하여 정상 발송 여부를 확인해주세요.</li>
           </ul>
