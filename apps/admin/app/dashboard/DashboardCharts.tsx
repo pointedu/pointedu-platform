@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, memo, useCallback } from 'react'
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -34,8 +34,58 @@ const formatAmount = (value: number) => {
   return value.toString()
 }
 
+// 메모이제이션된 차트 컴포넌트들
+const RequestsChart = memo(function RequestsChart({ data }: { data: { month: string; count: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12 }} />
+        <Tooltip />
+        <Area
+          type="monotone"
+          dataKey="count"
+          stroke="#3B82F6"
+          fill="#93C5FD"
+          name="요청 건수"
+          isAnimationActive={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+})
+
+const PaymentsChart = memo(function PaymentsChart({ data }: { data: { month: string; amount: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12 }} tickFormatter={formatAmount} />
+        <Tooltip formatter={(value: number) => [`${value.toLocaleString()}원`, '정산액']} />
+        <Area
+          type="monotone"
+          dataKey="amount"
+          stroke="#10B981"
+          fill="#6EE7B7"
+          name="정산액"
+          isAnimationActive={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+})
+
 export default function DashboardCharts({ data }: { data: ChartData }) {
   const [activeTab, setActiveTab] = useState<'requests' | 'payments'>('requests')
+  const [isPending, startTransition] = useTransition()
+
+  const handleTabChange = useCallback((tab: 'requests' | 'payments') => {
+    startTransition(() => {
+      setActiveTab(tab)
+    })
+  }, [])
 
   const totalRequests = data.programStats.reduce((sum, item) => sum + item.count, 0)
 
@@ -68,59 +118,40 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
           <h3 className="text-lg font-semibold text-gray-900">월별 추이</h3>
           <div className="flex rounded-lg bg-gray-100 p-1">
             <button
-              onClick={() => setActiveTab('requests')}
+              onClick={() => handleTabChange('requests')}
+              disabled={isPending}
               className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'requests'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isPending ? 'opacity-50 cursor-wait' : ''}`}
             >
               요청
             </button>
             <button
-              onClick={() => setActiveTab('payments')}
+              onClick={() => handleTabChange('payments')}
+              disabled={isPending}
               className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'payments'
                   ? 'bg-white text-green-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isPending ? 'opacity-50 cursor-wait' : ''}`}
             >
               정산
             </button>
           </div>
         </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            {activeTab === 'requests' ? (
-              <AreaChart data={data.monthlyRequests}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#3B82F6"
-                  fill="#93C5FD"
-                  name="요청 건수"
-                />
-              </AreaChart>
-            ) : (
-              <AreaChart data={data.monthlyPayments}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={formatAmount} />
-                <Tooltip formatter={(value: number) => [`${value.toLocaleString()}원`, '정산액']} />
-                <Area
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="#10B981"
-                  fill="#6EE7B7"
-                  name="정산액"
-                />
-              </AreaChart>
-            )}
-          </ResponsiveContainer>
+        <div className="h-64 relative">
+          {isPending && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+          {activeTab === 'requests' ? (
+            <RequestsChart data={data.monthlyRequests} />
+          ) : (
+            <PaymentsChart data={data.monthlyPayments} />
+          )}
         </div>
         {((activeTab === 'requests' && data.monthlyRequests.length === 0) ||
           (activeTab === 'payments' && data.monthlyPayments.length === 0)) && (
@@ -144,7 +175,7 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
                   width={60}
                 />
                 <Tooltip />
-                <Bar dataKey="count" fill="#8B5CF6" name="수업 수" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill="#8B5CF6" name="수업 수" radius={[0, 4, 4, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -168,6 +199,7 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
                   dataKey="value"
                   nameKey="shortName"
                   label={false}
+                  isAnimationActive={false}
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
