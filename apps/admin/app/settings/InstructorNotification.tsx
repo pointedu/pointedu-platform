@@ -36,13 +36,15 @@ export default function InstructorNotification() {
       try {
         const res = await fetch('/api/instructors')
         const data = await res.json()
-        if (data.success && Array.isArray(data.data)) {
-          // 활성 상태이고 전화번호가 있는 강사만 필터링
-          const activeInstructors = data.data.filter(
-            (i: Instructor) => i.status === 'ACTIVE' && i.phoneNumber
-          )
-          setInstructors(activeInstructors)
-        }
+
+        // API가 배열을 직접 반환하거나 { data: [...] } 형식일 수 있음
+        const instructorList = Array.isArray(data) ? data : (data.data || [])
+
+        // 활성 상태이고 전화번호가 있는 강사만 필터링
+        const activeInstructors = instructorList.filter(
+          (i: Instructor) => i.status === 'ACTIVE' && i.phoneNumber
+        )
+        setInstructors(activeInstructors)
       } catch (error) {
         console.error('Failed to fetch instructors:', error)
       } finally {
@@ -54,11 +56,17 @@ export default function InstructorNotification() {
   }, [])
 
   // 검색 필터링
-  const filteredInstructors = instructors.filter(instructor =>
-    instructor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    instructor.phoneNumber.includes(searchTerm) ||
-    instructor.subjects?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const filteredInstructors = instructors.filter(instructor => {
+    const term = searchTerm.toLowerCase().trim()
+    if (!term) return true
+
+    const nameMatch = instructor.name?.toLowerCase().includes(term) || false
+    const phoneMatch = instructor.phoneNumber?.includes(searchTerm) || false
+    const subjectMatch = Array.isArray(instructor.subjects) &&
+      instructor.subjects.some(s => s?.toLowerCase().includes(term))
+
+    return nameMatch || phoneMatch || subjectMatch
+  })
 
   // 전체 선택/해제
   const handleSelectAll = () => {
