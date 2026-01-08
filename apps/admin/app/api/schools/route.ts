@@ -90,6 +90,7 @@ export const POST = withAdminAuth(async (request) => {
     return successResponse(school, 201)
   } catch (error) {
     console.error('Failed to create school:', error)
-    return errorResponse('학교 생성에 실패했습니다.', 500)
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
+    return errorResponse(`학교 생성에 실패했습니다: ${errorMessage}`, 500)
   }
 })

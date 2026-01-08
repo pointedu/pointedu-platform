@@ -134,11 +134,11 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
           if (editingSchool) {
             setSchools(prev => prev.map(s =>
               s.id === editingSchool.id
-                ? { ...s, ...savedSchool.data, _count: s._count }
+                ? { ...s, ...savedSchool, _count: s._count }
                 : s
             ))
           } else {
-            setSchools(prev => [...prev, { ...savedSchool.data, _count: { requests: 0 } }])
+            setSchools(prev => [...prev, { ...savedSchool, _count: { requests: 0 } }])
           }
         })
 
