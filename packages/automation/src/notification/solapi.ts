@@ -18,6 +18,12 @@ interface SmsMessage {
   text: string
 }
 
+// 템플릿 ID로 브랜드 메시지 여부 확인
+// KA01BP: 브랜드 메시지, KA01TP: 알림톡
+function isBrandMessageTemplate(templateId: string): boolean {
+  return templateId.startsWith('KA01BP')
+}
+
 export class SolapiClient {
   private apiKey: string
   private apiSecret: string
@@ -51,35 +57,63 @@ export class SolapiClient {
     }
   }
 
-  // 카카오 알림톡 발송
+  // 카카오 알림톡/브랜드메시지 발송
   async sendAlimtalk(message: AlimtalkMessage): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages/v4/send`, {
+      // 전화번호에서 하이픈 제거
+      const phoneNumber = message.to.replace(/-/g, '')
+      const senderNumber = this.senderNumber.replace(/-/g, '')
+
+      const isBrandMessage = isBrandMessageTemplate(message.templateId)
+
+      // 기본 kakaoOptions 설정
+      const kakaoOptions: {
+        pfId: string
+        templateId: string
+        variables: Record<string, string>
+        disableSms: boolean
+        bms?: { targeting: string }
+      } = {
+        pfId: this.pfId,
+        templateId: message.templateId,
+        variables: message.variables || {},
+        // 브랜드 메시지는 SMS 대체 발송 불가, 알림톡은 가능
+        disableSms: isBrandMessage,
+      }
+
+      // 브랜드 메시지인 경우 bms 필드 추가
+      if (isBrandMessage) {
+        kakaoOptions.bms = {
+          targeting: 'I', // 채널 친구만 발송
+        }
+      }
+
+      console.log(`Sending ${isBrandMessage ? 'Brand Message (BMS)' : 'Alimtalk (ATA)'}:`, message.templateId)
+
+      const response = await fetch(`${this.baseUrl}/messages/v4/send-many`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
-          message: {
-            to: message.to,
-            from: this.senderNumber,
-            kakaoOptions: {
-              pfId: this.pfId,
-              templateId: message.templateId,
-              variables: message.variables,
-            },
-          },
+          messages: [{
+            to: phoneNumber,
+            from: senderNumber,
+            kakaoOptions,
+          }],
         }),
       })
 
       const result = await response.json()
 
-      if (response.ok) {
+      console.log('Solapi response:', JSON.stringify(result, null, 2))
+
+      if (response.ok && result.groupId) {
         return { success: true, messageId: result.groupId }
       } else {
-        console.error('Solapi Alimtalk error:', result)
-        return { success: false, error: result.message || 'Failed to send alimtalk' }
+        console.error('Solapi error:', result)
+        return { success: false, error: result.errorMessage || result.message || 'Failed to send message' }
       }
     } catch (error) {
-      console.error('Solapi Alimtalk exception:', error)
+      console.error('Solapi exception:', error)
       return { success: false, error: String(error) }
     }
   }
@@ -87,25 +121,32 @@ export class SolapiClient {
   // SMS 발송 (알림톡 실패 시 대체)
   async sendSms(message: SmsMessage): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages/v4/send`, {
+      // 전화번호에서 하이픈 제거
+      const phoneNumber = message.to.replace(/-/g, '')
+      const senderNumber = this.senderNumber.replace(/-/g, '')
+
+      const response = await fetch(`${this.baseUrl}/messages/v4/send-many`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
-          message: {
-            to: message.to,
-            from: this.senderNumber,
+          messages: [{
+            to: phoneNumber,
+            from: senderNumber,
+            type: 'SMS',
             text: message.text,
-          },
+          }],
         }),
       })
 
       const result = await response.json()
 
-      if (response.ok) {
+      console.log('Solapi SMS response:', JSON.stringify(result, null, 2))
+
+      if (response.ok && result.groupId) {
         return { success: true, messageId: result.groupId }
       } else {
         console.error('Solapi SMS error:', result)
-        return { success: false, error: result.message || 'Failed to send SMS' }
+        return { success: false, error: result.errorMessage || result.message || 'Failed to send SMS' }
       }
     } catch (error) {
       console.error('Solapi SMS exception:', error)

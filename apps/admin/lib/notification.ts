@@ -32,16 +32,22 @@ interface SolapiMessage {
   kakaoOptions?: {
     pfId: string
     templateId: string
-    variables?: Record<string, string>
+    variables: Record<string, string>  // 알림톡/브랜드메시지 모두 필수
     disableSms?: boolean
     bms?: {
-      targeting: string
+      targeting: string  // 'I': 친구만, 'M': 수신동의자, 'N': 전체
     }
   }
 }
 
 interface SolapiMessageBody {
   messages: SolapiMessage[]
+}
+
+// 템플릿 ID로 브랜드 메시지 여부 확인
+// KA01BP: 브랜드 메시지, KA01TP: 알림톡
+function isBrandMessageTemplate(templateId: string): boolean {
+  return templateId.startsWith('KA01BP')
 }
 
 // 솔라피 API 인증 헤더 생성
@@ -90,15 +96,26 @@ async function sendSolapiMessage(
       from: senderNumber.replace(/-/g, ''),
     }
 
-    // 카카오 브랜드 템플릿 사용 (템플릿이 있는 경우)
+    // 카카오 템플릿 사용 (템플릿이 있는 경우)
     if (pfId && kakaoOptions?.templateId) {
+      const isBrandMessage = isBrandMessageTemplate(kakaoOptions.templateId)
+
       message.kakaoOptions = {
         pfId,
         templateId: kakaoOptions.templateId,
-        disableSms: false, // SMS 대체 발송 활성화
-        bms: { targeting: 'I' }, // 브랜드 템플릿 설정
-        ...(kakaoOptions.variables && { variables: kakaoOptions.variables }),
+        variables: kakaoOptions.variables || {},
+        // 브랜드 메시지는 SMS 대체 발송 불가, 알림톡은 가능
+        disableSms: isBrandMessage ? true : false,
       }
+
+      // 브랜드 메시지(BMS)인 경우 bms 필드 추가 필수
+      if (isBrandMessage) {
+        message.kakaoOptions.bms = {
+          targeting: 'I', // 채널 친구만 발송
+        }
+      }
+
+      console.log(`Using ${isBrandMessage ? 'Brand Message (BMS)' : 'Alimtalk (ATA)'} template:`, kakaoOptions.templateId)
     } else {
       // SMS 발송
       message.type = 'SMS'
