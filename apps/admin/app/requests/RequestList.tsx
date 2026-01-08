@@ -14,6 +14,7 @@ import { exportToExcel, requestExcelConfig } from '../../lib/excel'
 import ResponsiveList from '../../components/ResponsiveList'
 import RequestCard from '../../components/cards/RequestCard'
 import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
+import BulkRequestModal from './BulkRequestModal'
 
 interface Instructor {
   id: string
@@ -162,6 +163,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [detailRequest, setDetailRequest] = useState<Request | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [newRequest, setNewRequest] = useState({
     schoolId: '',
     programId: '',
@@ -426,6 +428,12 @@ export default function RequestList({ initialRequests, availableInstructors, sch
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <ExportButton onClick={handleExportExcel} />
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
+          >
+            대량 등록
+          </button>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
@@ -1044,7 +1052,18 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             </button>
           </div>
         </form>
+          </div>
+        </form>
       </FormModal>
+
+      {/* Bulk Request Modal */}
+      <BulkRequestModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        schools={schools}
+        programs={programs}
+        instructors={availableInstructors}
+      />
     </>
   )
 }
