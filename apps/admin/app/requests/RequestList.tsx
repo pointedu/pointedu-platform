@@ -1052,8 +1052,6 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             </button>
           </div>
         </form>
-          </div>
-        </form>
       </FormModal>
 
       {/* Bulk Request Modal */}
