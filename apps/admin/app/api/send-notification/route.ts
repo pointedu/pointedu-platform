@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@pointedu/database'
 import crypto from 'crypto'
 
+// 카카오톡 알림톡 템플릿 ID
+const KAKAO_TEMPLATES = {
+  INSTRUCTOR_REGISTERED: 'KA01TP260108025300386layhuFTYkJZ',  // 강사등록완료
+  CLASS_ASSIGNED: 'KA01TP251231035539719ZS79k8bOV2r',         // 수업배정안내
+  CLASS_REMINDER_5DAYS: 'KA01TP260106071810134mvSJxt6HmfL',   // 배정된 수업 5일 전
+} as const
+
+type KakaoTemplateType = keyof typeof KAKAO_TEMPLATES
+
 // 솔라피 API 인증 헤더 생성
 function createSolapiHeaders() {
   const apiKey = process.env.SOLAPI_API_KEY?.trim()
@@ -24,17 +33,71 @@ function createSolapiHeaders() {
   }
 }
 
+// 템플릿별 변수 생성
+function getTemplateVariables(
+  templateType: KakaoTemplateType,
+  instructorName: string,
+  data?: {
+    message?: string
+    schoolName?: string
+    programName?: string
+    classDate?: string
+    classTime?: string
+  }
+): Record<string, string> {
+  switch (templateType) {
+    case 'INSTRUCTOR_REGISTERED':
+      // 강사등록완료 템플릿 변수
+      return {
+        '#{이름}': instructorName,
+      }
+
+    case 'CLASS_ASSIGNED':
+      // 수업배정안내 템플릿 변수
+      return {
+        '#{이름}': instructorName,
+        '#{학교명}': data?.schoolName || '',
+        '#{프로그램}': data?.programName || '',
+        '#{수업일}': data?.classDate || '',
+        '#{수업시간}': data?.classTime || '',
+      }
+
+    case 'CLASS_REMINDER_5DAYS':
+      // 배정된 수업 5일 전 템플릿 변수
+      return {
+        '#{이름}': instructorName,
+        '#{학교명}': data?.schoolName || '',
+        '#{프로그램}': data?.programName || '',
+        '#{수업일}': data?.classDate || '',
+        '#{수업시간}': data?.classTime || '',
+      }
+
+    default:
+      return {
+        '#{이름}': instructorName,
+        '#{내용}': data?.message || '',
+      }
+  }
+}
+
 // POST - 강사에게 알림 발송
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { instructorIds, message, notificationType = 'sms' } = body
+    const {
+      instructorIds,
+      message,
+      notificationType = 'sms',
+      templateType,
+      templateData,
+    } = body
 
     if (!instructorIds || !Array.isArray(instructorIds) || instructorIds.length === 0) {
       return NextResponse.json({ error: '강사를 선택해주세요.' }, { status: 400 })
     }
 
-    if (!message || message.trim() === '') {
+    // SMS의 경우에만 메시지 필수
+    if (notificationType === 'sms' && (!message || message.trim() === '')) {
       return NextResponse.json({ error: '메시지를 입력해주세요.' }, { status: 400 })
     }
 
@@ -67,19 +130,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '발신번호가 설정되지 않았습니다.' }, { status: 500 })
     }
 
-    // 카카오톡 발송일 경우 PF ID와 템플릿 ID 확인
-    const pfId = process.env.SOLAPI_KAKAO_PF_ID?.trim()
-    const templateId = process.env.SOLAPI_KAKAO_TEMPLATE_ID?.trim()
-
     // 메시지 발송
     let messages
 
     if (notificationType === 'kakao') {
       // 카카오톡 알림톡 발송
-      if (!pfId || !templateId) {
+      const pfId = process.env.SOLAPI_KAKAO_PF_ID?.trim()
+      if (!pfId) {
         return NextResponse.json({
-          error: '카카오톡 발송을 위한 설정(PF ID, 템플릿 ID)이 필요합니다.'
+          error: '카카오톡 발송을 위한 PF ID가 설정되지 않았습니다.'
         }, { status: 500 })
+      }
+
+      // 템플릿 타입 확인
+      const selectedTemplateType = (templateType as KakaoTemplateType) || 'INSTRUCTOR_REGISTERED'
+      const templateId = KAKAO_TEMPLATES[selectedTemplateType]
+
+      if (!templateId) {
+        return NextResponse.json({
+          error: '유효하지 않은 템플릿 타입입니다.'
+        }, { status: 400 })
       }
 
       messages = validInstructors.map(instructor => ({
@@ -88,10 +158,10 @@ export async function POST(request: NextRequest) {
         kakaoOptions: {
           pfId: pfId,
           templateId: templateId,
-          variables: {
-            '#{이름}': instructor.name,
-            '#{내용}': message,
-          },
+          variables: getTemplateVariables(selectedTemplateType, instructor.name, {
+            message,
+            ...templateData,
+          }),
         },
       }))
     } else {
@@ -126,6 +196,7 @@ export async function POST(request: NextRequest) {
           sentTo: validInstructors.map(i => i.name),
           totalCount: validInstructors.length,
           notificationType: typeLabel,
+          templateType: notificationType === 'kakao' ? templateType : undefined,
         },
       })
     } else {
@@ -142,4 +213,30 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// 템플릿 목록 조회
+export async function GET() {
+  return NextResponse.json({
+    templates: [
+      {
+        type: 'INSTRUCTOR_REGISTERED',
+        name: '강사등록완료',
+        description: '강사 가입 승인 시 발송',
+        variables: ['이름'],
+      },
+      {
+        type: 'CLASS_ASSIGNED',
+        name: '수업배정안내',
+        description: '수업 배정 시 발송',
+        variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+      },
+      {
+        type: 'CLASS_REMINDER_5DAYS',
+        name: '배정된 수업 5일 전',
+        description: '수업 5일 전 리마인더',
+        variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+      },
+    ],
+  })
 }

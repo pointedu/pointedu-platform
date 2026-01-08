@@ -17,12 +17,41 @@ interface Instructor {
   subjects: string[]
 }
 
+// 카카오톡 알림톡 템플릿 정보
+const KAKAO_TEMPLATES = [
+  {
+    type: 'INSTRUCTOR_REGISTERED',
+    name: '강사등록완료',
+    description: '강사 가입 승인 시 발송',
+    variables: ['이름'],
+  },
+  {
+    type: 'CLASS_ASSIGNED',
+    name: '수업배정안내',
+    description: '수업 배정 시 발송',
+    variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+  },
+  {
+    type: 'CLASS_REMINDER_5DAYS',
+    name: '배정된 수업 5일 전',
+    description: '수업 5일 전 리마인더',
+    variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+  },
+]
+
 export default function InstructorNotification() {
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [notificationType, setNotificationType] = useState<'sms' | 'kakao'>('sms')
+  const [templateType, setTemplateType] = useState('INSTRUCTOR_REGISTERED')
+  const [templateData, setTemplateData] = useState({
+    schoolName: '',
+    programName: '',
+    classDate: '',
+    classTime: '',
+  })
   const [loading, setLoading] = useState(false)
   const [fetchLoading, setFetchLoading] = useState(true)
   const [result, setResult] = useState<{
@@ -55,6 +84,9 @@ export default function InstructorNotification() {
 
     fetchInstructors()
   }, [])
+
+  // 선택된 템플릿 정보
+  const selectedTemplate = KAKAO_TEMPLATES.find(t => t.type === templateType)
 
   // 검색 필터링
   const filteredInstructors = instructors.filter(instructor => {
@@ -93,9 +125,34 @@ export default function InstructorNotification() {
       setResult({ success: false, message: '강사를 선택해주세요.' })
       return
     }
-    if (!message.trim()) {
+
+    // SMS일 경우에만 메시지 필수
+    if (notificationType === 'sms' && !message.trim()) {
       setResult({ success: false, message: '메시지를 입력해주세요.' })
       return
+    }
+
+    // 카카오톡 템플릿에 필요한 변수 확인
+    if (notificationType === 'kakao' && selectedTemplate) {
+      const requiredVars = selectedTemplate.variables.filter(v => v !== '이름')
+      if (requiredVars.length > 0) {
+        if (requiredVars.includes('학교명') && !templateData.schoolName) {
+          setResult({ success: false, message: '학교명을 입력해주세요.' })
+          return
+        }
+        if (requiredVars.includes('프로그램') && !templateData.programName) {
+          setResult({ success: false, message: '프로그램을 입력해주세요.' })
+          return
+        }
+        if (requiredVars.includes('수업일') && !templateData.classDate) {
+          setResult({ success: false, message: '수업일을 입력해주세요.' })
+          return
+        }
+        if (requiredVars.includes('수업시간') && !templateData.classTime) {
+          setResult({ success: false, message: '수업시간을 입력해주세요.' })
+          return
+        }
+      }
     }
 
     setLoading(true)
@@ -109,6 +166,8 @@ export default function InstructorNotification() {
           instructorIds: selectedIds,
           message: message.trim(),
           notificationType,
+          templateType: notificationType === 'kakao' ? templateType : undefined,
+          templateData: notificationType === 'kakao' ? templateData : undefined,
         }),
       })
 
@@ -122,6 +181,12 @@ export default function InstructorNotification() {
       if (data.success) {
         setMessage('')
         setSelectedIds([])
+        setTemplateData({
+          schoolName: '',
+          programName: '',
+          classDate: '',
+          classTime: '',
+        })
       }
     } catch (error) {
       setResult({
@@ -132,6 +197,20 @@ export default function InstructorNotification() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 카카오톡 발송 버튼 비활성화 조건
+  const isKakaoDisabled = () => {
+    if (selectedIds.length === 0) return true
+    if (!selectedTemplate) return true
+
+    const requiredVars = selectedTemplate.variables.filter(v => v !== '이름')
+    if (requiredVars.includes('학교명') && !templateData.schoolName) return true
+    if (requiredVars.includes('프로그램') && !templateData.programName) return true
+    if (requiredVars.includes('수업일') && !templateData.classDate) return true
+    if (requiredVars.includes('수업시간') && !templateData.classTime) return true
+
+    return false
   }
 
   return (
@@ -175,7 +254,7 @@ export default function InstructorNotification() {
                 onChange={() => setNotificationType('kakao')}
                 className="h-4 w-4 text-yellow-500 focus:ring-yellow-500 border-gray-300"
               />
-              <span className="ml-2 text-sm text-gray-700">카카오톡 알림</span>
+              <span className="ml-2 text-sm text-gray-700">카카오톡 알림톡</span>
             </label>
           </div>
           <p className="mt-1 text-xs text-gray-500">
@@ -184,6 +263,110 @@ export default function InstructorNotification() {
               : '카카오톡은 포인트교육 채널을 친구 추가한 강사에게만 발송됩니다.'}
           </p>
         </div>
+
+        {/* 카카오톡 템플릿 선택 */}
+        {notificationType === 'kakao' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              알림톡 템플릿 선택
+            </label>
+            <div className="space-y-2">
+              {KAKAO_TEMPLATES.map((template) => (
+                <label
+                  key={template.type}
+                  className={`flex items-start p-3 rounded-lg border cursor-pointer transition-colors ${
+                    templateType === template.type
+                      ? 'border-yellow-500 bg-yellow-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="templateType"
+                    value={template.type}
+                    checked={templateType === template.type}
+                    onChange={(e) => setTemplateType(e.target.value)}
+                    className="h-4 w-4 text-yellow-500 focus:ring-yellow-500 border-gray-300 mt-0.5"
+                  />
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{template.name}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{template.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      변수: {template.variables.map(v => `#{${v}}`).join(', ')}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 카카오톡 템플릿 변수 입력 */}
+        {notificationType === 'kakao' && selectedTemplate && selectedTemplate.variables.length > 1 && (
+          <div className="bg-yellow-50 rounded-lg p-4 space-y-4">
+            <h4 className="text-sm font-medium text-yellow-800">템플릿 변수 입력</h4>
+            <div className="grid grid-cols-2 gap-4">
+              {selectedTemplate.variables.includes('학교명') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    학교명 *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateData.schoolName}
+                    onChange={(e) => setTemplateData({ ...templateData, schoolName: e.target.value })}
+                    placeholder="예: OO중학교"
+                    className="w-full rounded-md border-0 py-2 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-yellow-500"
+                  />
+                </div>
+              )}
+              {selectedTemplate.variables.includes('프로그램') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    프로그램 *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateData.programName}
+                    onChange={(e) => setTemplateData({ ...templateData, programName: e.target.value })}
+                    placeholder="예: AI 진로체험"
+                    className="w-full rounded-md border-0 py-2 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-yellow-500"
+                  />
+                </div>
+              )}
+              {selectedTemplate.variables.includes('수업일') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    수업일 *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateData.classDate}
+                    onChange={(e) => setTemplateData({ ...templateData, classDate: e.target.value })}
+                    placeholder="예: 2024년 1월 15일(월)"
+                    className="w-full rounded-md border-0 py-2 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-yellow-500"
+                  />
+                </div>
+              )}
+              {selectedTemplate.variables.includes('수업시간') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    수업시간 *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateData.classTime}
+                    onChange={(e) => setTemplateData({ ...templateData, classTime: e.target.value })}
+                    placeholder="예: 오전 10:00 ~ 12:00"
+                    className="w-full rounded-md border-0 py-2 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-yellow-500"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 검색 */}
         <div>
@@ -254,30 +437,32 @@ export default function InstructorNotification() {
           )}
         </div>
 
-        {/* 메시지 입력 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            알림 메시지
-          </label>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="강사에게 보낼 메시지를 입력하세요..."
-            rows={3}
-            maxLength={notificationType === 'sms' ? 80 : 1000}
-            className="w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            메시지 앞에 &quot;[포인트교육] {'강사명'}님,&quot; 이 자동으로 추가됩니다. ({message.length}/{notificationType === 'sms' ? 80 : 1000}자)
-          </p>
-        </div>
+        {/* SMS 메시지 입력 */}
+        {notificationType === 'sms' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              알림 메시지
+            </label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="강사에게 보낼 메시지를 입력하세요..."
+              rows={3}
+              maxLength={80}
+              className="w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              메시지 앞에 &quot;[포인트교육] 강사명님,&quot; 이 자동으로 추가됩니다. ({message.length}/80자)
+            </p>
+          </div>
+        )}
 
         {/* 발송 버튼 */}
         <div className="flex justify-end">
           <button
             type="button"
             onClick={handleSend}
-            disabled={loading || selectedIds.length === 0 || !message.trim()}
+            disabled={loading || (notificationType === 'sms' ? (selectedIds.length === 0 || !message.trim()) : isKakaoDisabled())}
             className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
               notificationType === 'kakao'
                 ? 'bg-yellow-500 hover:bg-yellow-400'
@@ -328,7 +513,7 @@ export default function InstructorNotification() {
           <ul className="text-xs text-gray-600 space-y-1">
             <li>• 활성 상태이고 전화번호가 등록된 강사만 목록에 표시됩니다.</li>
             <li>• <strong>SMS</strong>: 모든 강사에게 발송 가능, 80자 이내</li>
-            <li>• <strong>카카오톡</strong>: 포인트교육 채널 친구에게만 발송, 1000자 이내</li>
+            <li>• <strong>카카오톡 알림톡</strong>: 승인된 템플릿을 통해 발송 (포인트교육 채널 친구에게만)</li>
             <li>• 전체 선택 버튼을 사용하여 모든 강사를 한번에 선택할 수 있습니다.</li>
             <li>• 발송 후 결과를 확인하여 정상 발송 여부를 확인해주세요.</li>
           </ul>
