@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../../lib/auth'
-import { prisma } from '@pointedu/database'
-import { Prisma } from '@pointedu/database'
+import { prisma, InstructorGrade, Prisma } from '@pointedu/database'
 import { calculateInstructorGrade, INTERNAL_GRADES, EXTERNAL_GRADES } from '../../../../../lib/instructor-grade'
 
 // GET - 강사 등급 정보 조회
@@ -214,7 +213,7 @@ export async function POST(
     const updatedInstructor = await prisma.instructor.update({
       where: { id: params.id },
       data: {
-        grade: newGrade as any,
+        grade: newGrade as InstructorGrade,
         feeMultiplier: gradeInfo.feeMultiplier,
         gradeUpdatedAt: new Date(),
       },

@@ -28,7 +28,7 @@ function createSolapiHeaders() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { instructorIds, message, notificationType = 'sms' } = body
+    const { instructorIds, message, notificationType: _notificationType = 'sms' } = body
 
     if (!instructorIds || !Array.isArray(instructorIds) || instructorIds.length === 0) {
       return NextResponse.json({ error: '강사를 선택해주세요.' }, { status: 400 })

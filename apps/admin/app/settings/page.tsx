@@ -23,7 +23,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsLayout
-      children={{
+      sections={{
         general: <SettingsForm initialSettings={settings} />,
         instructorRules: <InstructorRulesSettings />,
         notificationTest: <NotificationTest />,

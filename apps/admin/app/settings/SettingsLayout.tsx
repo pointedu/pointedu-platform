@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 interface SettingsLayoutProps {
-  children: {
+  sections: {
     general: React.ReactNode
     instructorRules: React.ReactNode
     notificationTest: React.ReactNode
@@ -27,7 +27,7 @@ const tabs = [
   { id: 'backup', name: '백업 관리', icon: CircleStackIcon },
 ]
 
-export default function SettingsLayout({ children }: SettingsLayoutProps) {
+export default function SettingsLayout({ sections }: SettingsLayoutProps) {
   const [activeTab, setActiveTab] = useState('general')
 
   return (
@@ -69,11 +69,11 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
       {/* 탭 컨텐츠 */}
       <div>
-        {activeTab === 'general' && children.general}
-        {activeTab === 'instructorRules' && children.instructorRules}
-        {activeTab === 'notificationTest' && children.notificationTest}
-        {activeTab === 'instructorNotification' && children.instructorNotification}
-        {activeTab === 'backup' && children.backup}
+        {activeTab === 'general' && sections.general}
+        {activeTab === 'instructorRules' && sections.instructorRules}
+        {activeTab === 'notificationTest' && sections.notificationTest}
+        {activeTab === 'instructorNotification' && sections.instructorNotification}
+        {activeTab === 'backup' && sections.backup}
       </div>
     </div>
   )

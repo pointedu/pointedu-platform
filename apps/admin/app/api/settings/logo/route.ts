@@ -12,7 +12,7 @@ export async function GET() {
     const files = await listFiles(STORAGE_BUCKETS.LOGOS)
 
     // company-logo로 시작하는 파일 찾기
-    const logoFile = files.find((f: any) => f.name && f.name.startsWith(LOGO_FILENAME))
+    const logoFile = files.find((f: { name?: string }) => f.name && f.name.startsWith(LOGO_FILENAME))
 
     if (logoFile) {
       const publicUrl = getPublicUrl(STORAGE_BUCKETS.LOGOS, logoFile.name)
