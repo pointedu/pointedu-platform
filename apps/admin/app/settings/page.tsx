@@ -5,6 +5,7 @@ import SettingsForm from './SettingsForm'
 import BackupManager from './BackupManager'
 import InstructorRulesSettings from './InstructorRulesSettings'
 import NotificationTest from './NotificationTest'
+import InstructorNotification from './InstructorNotification'
 
 async function getSettings() {
   try {
@@ -38,6 +39,11 @@ export default async function SettingsPage() {
       {/* 알림 테스트 */}
       <div className="mt-8">
         <NotificationTest />
+      </div>
+
+      {/* 강사 알림 발송 */}
+      <div className="mt-8">
+        <InstructorNotification />
       </div>
 
       {/* 데이터 백업 관리 */}
