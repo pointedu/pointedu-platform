@@ -124,8 +124,25 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
       })
 
       if (res.ok) {
+        const savedSchool = await res.json()
+        // 즉시 모달 닫기 (INP 최적화)
         setIsModalOpen(false)
         resetForm()
+
+        // 낙관적 UI 업데이트
+        startTransition(() => {
+          if (editingSchool) {
+            setSchools(prev => prev.map(s =>
+              s.id === editingSchool.id
+                ? { ...s, ...savedSchool.data, _count: s._count }
+                : s
+            ))
+          } else {
+            setSchools(prev => [...prev, { ...savedSchool.data, _count: { requests: 0 } }])
+          }
+        })
+
+        // 백그라운드에서 서버 데이터 동기화
         router.refresh()
       } else {
         const data = await res.json()
