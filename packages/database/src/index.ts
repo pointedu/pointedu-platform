@@ -6,6 +6,17 @@ import { PrismaClient } from '@prisma/client'
 // PrismaClient Singleton Pattern for serverless environment
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
+// Build database URL with connection pool parameters for Supabase
+const getDatabaseUrl = () => {
+  const baseUrl = process.env.DATABASE_URL || ''
+  // Add connection pool parameters for serverless environment
+  if (baseUrl && !baseUrl.includes('connection_limit')) {
+    const separator = baseUrl.includes('?') ? '&' : '?'
+    return `${baseUrl}${separator}connection_limit=10&pool_timeout=30&connect_timeout=30`
+  }
+  return baseUrl
+}
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
@@ -13,13 +24,16 @@ export const prisma =
     // Connection pool optimization for serverless
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: getDatabaseUrl(),
       },
     },
   })
 
 // In production, we want to reuse the global prisma instance
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+// Prevent multiple instances in production
+if (process.env.NODE_ENV === 'production') globalForPrisma.prisma = prisma
 
 // Graceful shutdown handler for serverless
 if (typeof process !== 'undefined') {

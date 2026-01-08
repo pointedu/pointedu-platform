@@ -15,6 +15,17 @@ import { serializeDecimal } from '../../lib/utils'
 
 async function getInstructorData(userId: string) {
   try {
+    // 먼저 사용자 정보 확인
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true, active: true }
+    })
+
+    if (!user) {
+      console.error('User not found:', userId)
+      return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'USER_NOT_FOUND' }
+    }
+
     const instructor = await prisma.instructor.findUnique({
       where: { userId },
       include: {
@@ -54,6 +65,11 @@ async function getInstructorData(userId: string) {
       },
     })
 
+    if (!instructor) {
+      console.error('Instructor profile not linked to user:', userId, user.email)
+      return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'INSTRUCTOR_NOT_LINKED', user }
+    }
+
     // Get proposed/pending assignments that need response
     const proposedAssignments = await prisma.instructorAssignment.findMany({
       where: {
@@ -90,10 +106,10 @@ async function getInstructorData(userId: string) {
     // Serialize Decimal values for client component
     const serializedInstructor = instructor ? serializeDecimal(instructor) : null
     const serializedProposed = serializeDecimal(proposedAssignments)
-    return { instructor: serializedInstructor, availableClasses, proposedAssignments: serializedProposed }
+    return { instructor: serializedInstructor, availableClasses, proposedAssignments: serializedProposed, error: null }
   } catch (error) {
     console.error('Failed to fetch instructor data:', error)
-    return { instructor: null, availableClasses: 0, proposedAssignments: [] }
+    return { instructor: null, availableClasses: 0, proposedAssignments: [], error: 'DATABASE_ERROR' }
   }
 }
 
@@ -101,12 +117,29 @@ export default async function InstructorHomePage() {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id as string
 
-  const { instructor, availableClasses, proposedAssignments } = await getInstructorData(userId)
+  const { instructor, availableClasses, proposedAssignments, error } = await getInstructorData(userId)
 
   if (!instructor) {
+    // 에러 유형에 따른 메시지 표시
+    let errorMessage = '강사 정보를 찾을 수 없습니다.'
+    let errorDetail = ''
+
+    if (error === 'USER_NOT_FOUND') {
+      errorMessage = '사용자 정보를 찾을 수 없습니다.'
+      errorDetail = '다시 로그인해 주세요.'
+    } else if (error === 'INSTRUCTOR_NOT_LINKED') {
+      errorMessage = '강사 프로필이 연결되지 않았습니다.'
+      errorDetail = '관리자에게 문의하여 계정 연결을 요청해주세요.'
+    } else if (error === 'DATABASE_ERROR') {
+      errorMessage = '데이터베이스 연결에 문제가 있습니다.'
+      errorDetail = '잠시 후 다시 시도해주세요. 문제가 지속되면 관리자에게 문의해주세요.'
+    }
+
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">강사 정보를 찾을 수 없습니다.</p>
+        <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-yellow-500" />
+        <h2 className="mt-4 text-lg font-semibold text-gray-900">{errorMessage}</h2>
+        {errorDetail && <p className="mt-2 text-sm text-gray-500">{errorDetail}</p>}
       </div>
     )
   }

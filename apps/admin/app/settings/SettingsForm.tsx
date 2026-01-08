@@ -161,18 +161,29 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     setLoading(true)
 
     try {
+      // settings 객체를 배열 형식으로 변환하여 API에 전송
+      const settingsArray = Object.entries(settings).map(([key, value]) => ({
+        key,
+        value,
+      }))
+
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings }),
+        body: JSON.stringify({ settings: settingsArray }),
       })
 
       if (res.ok) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
+      } else {
+        const error = await res.json()
+        console.error('Failed to save settings:', error)
+        alert('설정 저장에 실패했습니다: ' + (error.message || error.error || '알 수 없는 오류'))
       }
     } catch (error) {
       console.error('Failed to save settings:', error)
+      alert('설정 저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
