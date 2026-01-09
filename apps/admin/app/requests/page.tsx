@@ -121,6 +121,8 @@ interface Request {
   studentCount: number
   schoolBudget?: number | null
   preferredDates?: string[] | null
+  isPublic?: boolean
+  publicAt?: string | null
   school: {
     id: string
     name: string

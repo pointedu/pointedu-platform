@@ -6,6 +6,8 @@ import {
   ClockIcon,
   UserPlusIcon,
   CheckCircleIcon,
+  GlobeAltIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import AutomateButton from './AutomateButton'
 import FormModal from '../../components/FormModal'
@@ -34,6 +36,8 @@ interface Request {
   studentCount: number
   schoolBudget?: number | null
   preferredDates?: string[] | null
+  isPublic?: boolean
+  publicAt?: string | null
   school: {
     id: string
     name: string
@@ -398,6 +402,55 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     }
   }
 
+  // 수업 공개 핸들러 (전체 강사에게 오픈)
+  const handlePublishRequest = async (requestId: string, currentlyPublic: boolean) => {
+    if (currentlyPublic) {
+      // 공개 취소
+      if (!confirm('수업 공개를 취소하시겠습니까? 강사들이 더 이상 지원할 수 없게 됩니다.')) return
+    } else {
+      // 공개
+      if (!confirm('이 수업을 전체 강사에게 공개하시겠습니까?\n공개 시 모든 활성 강사에게 알림이 발송됩니다.')) return
+    }
+
+    setLoading(true)
+
+    try {
+      const res = await fetch(`/api/requests/${requestId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPublic: !currentlyPublic,
+          sendNotification: !currentlyPublic, // 공개할 때만 알림 발송
+        }),
+      })
+
+      const result = await res.json()
+
+      if (res.ok) {
+        alert(result.message || (currentlyPublic ? '수업 공개가 취소되었습니다.' : '수업이 공개되었습니다.'))
+
+        // 낙관적 UI 업데이트
+        startTransition(() => {
+          setRequests(prev => prev.map(r =>
+            r.id === requestId ? { ...r, isPublic: !currentlyPublic } : r
+          ))
+          setFilteredRequests(prev => prev.map(r =>
+            r.id === requestId ? { ...r, isPublic: !currentlyPublic } : r
+          ))
+        })
+
+        router.refresh()
+      } else {
+        alert(result.error || '수업 공개 처리에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to publish request:', error)
+      alert('수업 공개 처리 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getRecommendedInstructors = () => {
     if (!selectedRequest) return availableInstructors
 
@@ -608,8 +661,16 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                               {assignment.status === 'CONFIRMED' ? '확정됨' : '제안됨'}
                             </div>
                           </div>
+                        ) : request.isPublic ? (
+                          <div className="flex items-center gap-1 text-green-600">
+                            <GlobeAltIcon className="h-4 w-4" />
+                            <span className="text-xs">강사 모집중</span>
+                          </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <div className="flex items-center gap-1 text-gray-400">
+                            <LockClosedIcon className="h-4 w-4" />
+                            <span className="text-xs">비공개</span>
+                          </div>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-right text-sm">
@@ -618,13 +679,36 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                             <AutomateButton requestId={request.id} />
                           )}
                           {canAssign && (
-                            <button
-                              onClick={() => openAssignModal(request)}
-                              className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                            >
-                              <UserPlusIcon className="h-3.5 w-3.5" />
-                              수동 배정
-                            </button>
+                            <>
+                              <button
+                                onClick={() => openAssignModal(request)}
+                                className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                              >
+                                <UserPlusIcon className="h-3.5 w-3.5" />
+                                배정
+                              </button>
+                              <button
+                                onClick={() => handlePublishRequest(request.id, !!request.isPublic)}
+                                disabled={loading}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
+                                  request.isPublic
+                                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                }`}
+                              >
+                                {request.isPublic ? (
+                                  <>
+                                    <LockClosedIcon className="h-3.5 w-3.5" />
+                                    공개취소
+                                  </>
+                                ) : (
+                                  <>
+                                    <GlobeAltIcon className="h-3.5 w-3.5" />
+                                    공개
+                                  </>
+                                )}
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => openDetailModal(request)}
