@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback, useRef } from 'react'
+import { useState, useEffect, useTransition, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BuildingOffice2Icon,
@@ -84,19 +84,19 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     })
   }, [activeRegion, schools])
 
-  // 지역별 카운트 계산
-  const regionCounts = {
-    전체: schools.length,
-    영주: schools.filter((s) => s.region.includes('영주')).length,
-    안동: schools.filter((s) => s.region.includes('안동')).length,
-    봉화: schools.filter((s) => s.region.includes('봉화')).length,
-    예천: schools.filter((s) => s.region.includes('예천')).length,
-    문경: schools.filter((s) => s.region.includes('문경')).length,
-    기타: schools.filter((s) => {
-      const mainRegions = ['영주', '안동', '봉화', '예천', '문경']
-      return !mainRegions.some((r) => s.region.includes(r))
-    }).length,
-  }
+  // 지역별 카운트 계산 (useMemo로 최적화)
+  const regionCounts = useMemo(() => {
+    const mainRegions = ['영주', '안동', '봉화', '예천', '문경']
+    return {
+      전체: schools.length,
+      영주: schools.filter((s) => s.region.includes('영주')).length,
+      안동: schools.filter((s) => s.region.includes('안동')).length,
+      봉화: schools.filter((s) => s.region.includes('봉화')).length,
+      예천: schools.filter((s) => s.region.includes('예천')).length,
+      문경: schools.filter((s) => s.region.includes('문경')).length,
+      기타: schools.filter((s) => !mainRegions.some((r) => s.region.includes(r))).length,
+    }
+  }, [schools])
 
   // 탭 변경 핸들러
   const handleRegionChange = useCallback((region: string) => {

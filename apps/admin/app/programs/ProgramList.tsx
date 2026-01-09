@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback, useRef } from 'react'
+import { useState, useEffect, useTransition, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AcademicCapIcon,
@@ -71,14 +71,14 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
     })
   }, [activeCategory, programs])
 
-  // 카테고리별 카운트 계산
-  const categoryCounts: Record<string, number> = {
-    전체: programs.length,
-    ...Object.keys(categoryLabels).reduce((acc, category) => {
-      acc[category] = programs.filter((p) => p.category === category).length
-      return acc
-    }, {} as Record<string, number>),
-  }
+  // 카테고리별 카운트 계산 (useMemo로 최적화)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { 전체: programs.length }
+    Object.keys(categoryLabels).forEach((category) => {
+      counts[category] = programs.filter((p) => p.category === category).length
+    })
+    return counts
+  }, [programs])
 
   // 탭 변경 핸들러
   const handleCategoryChange = useCallback((category: string) => {

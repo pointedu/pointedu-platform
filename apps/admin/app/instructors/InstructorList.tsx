@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback } from 'react'
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
 import Modal from '../../components/Modal'
@@ -289,8 +289,8 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     applyFilters(searchQuery, activeFilters, currentSort, tab)
   }
 
-  // 탭별 카운트 계산
-  const tabCounts = {
+  // 탭별 카운트 계산 (useMemo로 최적화)
+  const tabCounts = useMemo(() => ({
     active: instructors.filter((i) =>
       (i.instructorType !== 'EXTERNAL') &&
       ['ACTIVE', 'PENDING', 'ON_LEAVE'].includes(i.status)
@@ -304,7 +304,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       ['TERMINATED', 'REJECTED'].includes(i.status)
     ).length,
     external: instructors.filter((i) => i.instructorType === 'EXTERNAL').length,
-  }
+  }), [instructors])
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)

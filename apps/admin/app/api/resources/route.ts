@@ -54,6 +54,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '파일을 선택해주세요.' }, { status: 400 })
     }
 
+    // 파일 타입 검증 (허용되는 MIME 타입)
+    const allowedMimeTypes = [
+      // 이미지
+      'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml',
+      // 문서
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/csv',
+      // 압축
+      'application/zip',
+      'application/x-zip-compressed',
+      // 비디오
+      'video/mp4', 'video/webm', 'video/quicktime',
+    ]
+
+    if (!allowedMimeTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: '허용되지 않는 파일 형식입니다. 이미지, 문서, 압축파일, 비디오만 업로드 가능합니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 파일 크기 검증 (최대 50MB)
+    const maxSize = 50 * 1024 * 1024
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: '파일 크기가 너무 큽니다. 최대 50MB까지 업로드 가능합니다.' },
+        { status: 400 }
+      )
+    }
+
     // Supabase Storage 버킷 확인/생성
     await ensureBucket(STORAGE_BUCKETS.RESOURCES, true)
 

@@ -6,6 +6,20 @@ import { authOptions } from '../../../../lib/auth'
 import { prisma } from '@pointedu/database'
 import { withAuth, successResponse, errorResponse } from '../../../../lib/api-auth'
 
+// 안전한 정수 파싱 함수
+function safeParseInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = typeof value === 'number' ? value : parseInt(String(value), 10)
+  return isNaN(parsed) ? null : parsed
+}
+
+// 안전한 실수 파싱 함수
+function safeParseFloat(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value))
+  return isNaN(parsed) ? null : parsed
+}
+
 // GET - 요청 상세 조회 (인증 필요)
 export const GET = withAuth(async (request, context) => {
   try {
@@ -66,12 +80,21 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
-    if (sessions) updateData.sessions = parseInt(sessions)
-    if (studentCount) updateData.studentCount = parseInt(studentCount)
+
+    // 안전한 정수 파싱
+    const parsedSessions = safeParseInt(sessions)
+    if (parsedSessions !== null) updateData.sessions = parsedSessions
+
+    const parsedStudentCount = safeParseInt(studentCount)
+    if (parsedStudentCount !== null) updateData.studentCount = parsedStudentCount
+
     if (targetGrade) updateData.targetGrade = targetGrade
     if (desiredDate) updateData.desiredDate = new Date(desiredDate)
     if (alternateDate !== undefined) updateData.alternateDate = alternateDate ? new Date(alternateDate) : null
-    if (schoolBudget !== undefined) updateData.schoolBudget = schoolBudget ? parseFloat(schoolBudget) : null
+
+    // 안전한 실수 파싱
+    if (schoolBudget !== undefined) updateData.schoolBudget = safeParseFloat(schoolBudget)
+
     if (requirements !== undefined) updateData.requirements = requirements
     if (notes !== undefined) updateData.notes = notes
     if (internalNotes !== undefined) updateData.internalNotes = internalNotes
@@ -99,7 +122,8 @@ export async function PATCH(
     return NextResponse.json(schoolRequest)
   } catch (error) {
     console.error('Failed to update request:', error)
-    return NextResponse.json({ error: 'Failed to update request' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Failed to update request'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -114,24 +138,66 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Delete related records first
-    await prisma.classApplication.deleteMany({
-      where: { requestId: params.id },
-    })
-    await prisma.instructorAssignment.deleteMany({
-      where: { requestId: params.id },
-    })
-    await prisma.quote.deleteMany({
-      where: { requestId: params.id },
+    // 요청 존재 여부 확인
+    const schoolRequest = await prisma.schoolRequest.findUnique({
+      where: { id: params.id },
+      include: {
+        assignments: {
+          include: { payment: { select: { id: true, status: true } } },
+        },
+      },
     })
 
-    await prisma.schoolRequest.delete({
-      where: { id: params.id },
+    if (!schoolRequest) {
+      return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 })
+    }
+
+    // 정산 완료된 배정이 있는 경우 삭제 불가
+    const hasPaidPayment = schoolRequest.assignments.some(
+      (a) => a.payment && a.payment.status === 'PAID'
+    )
+    if (hasPaidPayment) {
+      return NextResponse.json(
+        { error: '이 요청에 정산 완료된 배정이 있어 삭제할 수 없습니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 트랜잭션으로 연관 데이터 삭제
+    await prisma.$transaction(async (tx) => {
+      // 정산 내역 삭제 (배정에 연결된)
+      const assignmentIds = schoolRequest.assignments.map((a) => a.id)
+      if (assignmentIds.length > 0) {
+        await tx.payment.deleteMany({
+          where: { assignmentId: { in: assignmentIds } },
+        })
+      }
+
+      // 지원서 삭제
+      await tx.classApplication.deleteMany({
+        where: { requestId: params.id },
+      })
+
+      // 배정 삭제
+      await tx.instructorAssignment.deleteMany({
+        where: { requestId: params.id },
+      })
+
+      // 견적 삭제
+      await tx.quote.deleteMany({
+        where: { requestId: params.id },
+      })
+
+      // 요청 삭제
+      await tx.schoolRequest.delete({
+        where: { id: params.id },
+      })
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to delete request:', error)
-    return NextResponse.json({ error: 'Failed to delete request' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Failed to delete request'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
