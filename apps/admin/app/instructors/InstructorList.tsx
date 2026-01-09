@@ -505,23 +505,48 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
     )
   }
 
-  const toggleSubject = (subject: string) => {
-    setFormData(prev => ({
-      ...prev,
-      subjects: prev.subjects.includes(subject)
-        ? prev.subjects.filter(s => s !== subject)
-        : [...prev.subjects, subject]
-    }))
-  }
+  // INP 최적화: 토글 핸들러
+  const toggleSubject = useCallback((subject: string) => {
+    startTransition(() => {
+      setFormData(prev => ({
+        ...prev,
+        subjects: prev.subjects.includes(subject)
+          ? prev.subjects.filter(s => s !== subject)
+          : [...prev.subjects, subject]
+      }))
+    })
+  }, [])
 
-  const toggleDay = (day: string) => {
-    setFormData(prev => ({
-      ...prev,
-      availableDays: prev.availableDays.includes(day)
-        ? prev.availableDays.filter(d => d !== day)
-        : [...prev.availableDays, day]
-    }))
-  }
+  const toggleDay = useCallback((day: string) => {
+    startTransition(() => {
+      setFormData(prev => ({
+        ...prev,
+        availableDays: prev.availableDays.includes(day)
+          ? prev.availableDays.filter(d => d !== day)
+          : [...prev.availableDays, day]
+      }))
+    })
+  }, [])
+
+  // INP 최적화: 폼 입력 핸들러
+  const handleFormChange = useCallback((field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const value = e.target.value
+    startTransition(() => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
+
+  // INP 최적화: 등급 폼 입력 핸들러
+  const handleGradeFormChange = useCallback((field: keyof typeof gradeFormData) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value
+    startTransition(() => {
+      setGradeFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
 
   const handleExportExcel = () => {
     const exportData = filteredInstructors.map(instructor => ({
@@ -1039,7 +1064,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                 type="text"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={handleFormChange('name')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -1047,7 +1072,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               <label className="block text-sm font-medium text-gray-700">상태</label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                onChange={handleFormChange('status')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 {Object.entries(statusLabels).map(([value, label]) => (
@@ -1064,7 +1089,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                 type="text"
                 required
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                onChange={handleFormChange('phoneNumber')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -1073,7 +1098,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={handleFormChange('email')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -1084,7 +1109,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               <label className="block text-sm font-medium text-gray-700">거주지 *</label>
               <select
                 value={formData.homeBase}
-                onChange={(e) => setFormData({ ...formData, homeBase: e.target.value })}
+                onChange={handleFormChange('homeBase')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="영주">영주</option>
@@ -1098,7 +1123,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
               <label className="block text-sm font-medium text-gray-700">활동 범위 *</label>
               <select
                 value={formData.rangeKm}
-                onChange={(e) => setFormData({ ...formData, rangeKm: e.target.value })}
+                onChange={handleFormChange('rangeKm')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="40-60">40-60km</option>
@@ -1156,7 +1181,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                 <input
                   type="text"
                   value={formData.bankName}
-                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  onChange={handleFormChange('bankName')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
@@ -1165,7 +1190,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                 <input
                   type="text"
                   value={formData.accountNumber}
-                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                  onChange={handleFormChange('accountNumber')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
@@ -1174,7 +1199,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                 <input
                   type="text"
                   value={formData.accountHolder}
-                  onChange={(e) => setFormData({ ...formData, accountHolder: e.target.value })}
+                  onChange={handleFormChange('accountHolder')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
@@ -1221,7 +1246,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                   name="instructorType"
                   value="INTERNAL"
                   checked={gradeFormData.instructorType === 'INTERNAL'}
-                  onChange={(e) => setGradeFormData({ ...gradeFormData, instructorType: e.target.value as 'INTERNAL' | 'EXTERNAL' })}
+                  onChange={handleGradeFormChange('instructorType')}
                   className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-900">내부 강사</span>
@@ -1232,7 +1257,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                   name="instructorType"
                   value="EXTERNAL"
                   checked={gradeFormData.instructorType === 'EXTERNAL'}
-                  onChange={(e) => setGradeFormData({ ...gradeFormData, instructorType: e.target.value as 'INTERNAL' | 'EXTERNAL' })}
+                  onChange={handleGradeFormChange('instructorType')}
                   className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-900">외부 강사</span>
@@ -1259,7 +1284,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                       name="grade"
                       value={key}
                       checked={gradeFormData.grade === key}
-                      onChange={(e) => setGradeFormData({ ...gradeFormData, grade: e.target.value })}
+                      onChange={handleGradeFormChange('grade')}
                       className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
                     <div className="ml-3 flex-1">
@@ -1295,7 +1320,7 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
                       name="externalGrade"
                       value={key}
                       checked={gradeFormData.externalGrade === key}
-                      onChange={(e) => setGradeFormData({ ...gradeFormData, externalGrade: e.target.value })}
+                      onChange={handleGradeFormChange('externalGrade')}
                       className="h-4 w-4 text-teal-600 border-gray-300 focus:ring-teal-500"
                     />
                     <div className="ml-3 flex-1">

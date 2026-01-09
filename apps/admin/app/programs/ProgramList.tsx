@@ -82,6 +82,16 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
     setEditingProgram(null)
   }
 
+  // INP 최적화: 폼 입력 핸들러
+  const handleFormChange = useCallback((field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const value = e.target.value
+    startTransition(() => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
+
   // 엑셀 관련 함수들
   const resetExcelForm = () => {
     setExcelData([])
@@ -343,7 +353,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
                 type="text"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={handleFormChange('name')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -351,7 +361,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <label className="block text-sm font-medium text-gray-700">카테고리</label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleFormChange('category')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 {Object.entries(categoryLabels).map(([value, label]) => (
@@ -366,7 +376,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
             <textarea
               rows={3}
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={handleFormChange('description')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
@@ -378,7 +388,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
                 type="number"
                 required
                 value={formData.sessionMinutes}
-                onChange={(e) => setFormData({ ...formData, sessionMinutes: e.target.value })}
+                onChange={handleFormChange('sessionMinutes')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -387,7 +397,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <input
                 type="number"
                 value={formData.maxStudents}
-                onChange={(e) => setFormData({ ...formData, maxStudents: e.target.value })}
+                onChange={handleFormChange('maxStudents')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
@@ -396,7 +406,7 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
               <input
                 type="number"
                 value={formData.baseSessionFee}
-                onChange={(e) => setFormData({ ...formData, baseSessionFee: e.target.value })}
+                onChange={handleFormChange('baseSessionFee')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, useCallback } from 'react'
 import Link from 'next/link'
 
 const availableSubjects = [
@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [, startTransition] = useTransition()
 
   const [formData, setFormData] = useState({
     email: '',
@@ -95,23 +96,38 @@ export default function RegisterPage() {
     }
   }
 
-  const toggleSubject = (subject: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      subjects: prev.subjects.includes(subject)
-        ? prev.subjects.filter((s) => s !== subject)
-        : [...prev.subjects, subject],
-    }))
-  }
+  // INP 최적화: 토글 핸들러
+  const toggleSubject = useCallback((subject: string) => {
+    startTransition(() => {
+      setFormData((prev) => ({
+        ...prev,
+        subjects: prev.subjects.includes(subject)
+          ? prev.subjects.filter((s) => s !== subject)
+          : [...prev.subjects, subject],
+      }))
+    })
+  }, [])
 
-  const toggleDay = (day: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      availableDays: prev.availableDays.includes(day)
-        ? prev.availableDays.filter((d) => d !== day)
-        : [...prev.availableDays, day],
-    }))
-  }
+  const toggleDay = useCallback((day: string) => {
+    startTransition(() => {
+      setFormData((prev) => ({
+        ...prev,
+        availableDays: prev.availableDays.includes(day)
+          ? prev.availableDays.filter((d) => d !== day)
+          : [...prev.availableDays, day],
+      }))
+    })
+  }, [])
+
+  // INP 최적화: 폼 입력 핸들러
+  const handleFormChange = useCallback((field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const value = e.target.value
+    startTransition(() => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
 
   if (success) {
     return (
@@ -183,7 +199,7 @@ export default function RegisterPage() {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={handleFormChange('name')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -196,7 +212,7 @@ export default function RegisterPage() {
                     required
                     placeholder="010-0000-0000"
                     value={formData.phoneNumber}
-                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    onChange={handleFormChange('phoneNumber')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -208,7 +224,7 @@ export default function RegisterPage() {
                     type="email"
                     required
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={handleFormChange('email')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -221,7 +237,7 @@ export default function RegisterPage() {
                     required
                     placeholder="예: 영주시, 안동시"
                     value={formData.homeBase}
-                    onChange={(e) => setFormData({ ...formData, homeBase: e.target.value })}
+                    onChange={handleFormChange('homeBase')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -241,7 +257,7 @@ export default function RegisterPage() {
                     required
                     minLength={6}
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={handleFormChange('password')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -253,7 +269,7 @@ export default function RegisterPage() {
                     type="password"
                     required
                     value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    onChange={handleFormChange('confirmPassword')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -292,7 +308,7 @@ export default function RegisterPage() {
                     type="number"
                     min="0"
                     value={formData.experience}
-                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                    onChange={handleFormChange('experience')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -302,7 +318,7 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="쉼표로 구분하여 입력"
                     value={formData.certifications}
-                    onChange={(e) => setFormData({ ...formData, certifications: e.target.value })}
+                    onChange={handleFormChange('certifications')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -340,7 +356,7 @@ export default function RegisterPage() {
                 </label>
                 <select
                   value={formData.rangeKm}
-                  onChange={(e) => setFormData({ ...formData, rangeKm: e.target.value })}
+                  onChange={handleFormChange('rangeKm')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
                   <option value="40-60">40-60km (근거리)</option>
@@ -364,7 +380,7 @@ export default function RegisterPage() {
                     required
                     placeholder="000000-0000000"
                     value={formData.residentNumber}
-                    onChange={(e) => setFormData({ ...formData, residentNumber: e.target.value })}
+                    onChange={handleFormChange('residentNumber')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                   <p className="mt-1 text-xs text-gray-500">원천징수 신고에 필요합니다</p>
@@ -375,7 +391,7 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="예: 신한 110-123-456789"
                     value={formData.bankAccount}
-                    onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
+                    onChange={handleFormChange('bankAccount')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -391,7 +407,7 @@ export default function RegisterPage() {
                   type="tel"
                   placeholder="긴급 시 연락 가능한 번호"
                   value={formData.emergencyContact}
-                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                  onChange={handleFormChange('emergencyContact')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -405,7 +421,7 @@ export default function RegisterPage() {
               <textarea
                 rows={3}
                 value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                onChange={handleFormChange('message')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="자기소개, 경력 사항 등을 자유롭게 작성해주세요."
               />

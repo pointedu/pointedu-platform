@@ -238,6 +238,16 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
     return categoryOptions.find((c) => c.value === category) || categoryOptions[0]
   }
 
+  // INP 최적화: 폼 입력 핸들러
+  const handleFormChange = useCallback((field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value
+    startTransition(() => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
+
   return (
     <>
       <div className="mb-4 flex justify-end">
@@ -490,7 +500,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
               type="text"
               required
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={handleFormChange('title')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               placeholder="공지사항 제목을 입력하세요"
             />
@@ -501,7 +511,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
               <label className="block text-sm font-medium text-gray-700">분류</label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleFormChange('category')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 {categoryOptions.map((option) => (
@@ -516,7 +526,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
                 <input
                   type="checkbox"
                   checked={formData.isPublished}
-                  onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
+                  onChange={handleFormChange('isPublished')}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700">공개</span>
@@ -525,7 +535,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
                 <input
                   type="checkbox"
                   checked={formData.isPinned}
-                  onChange={(e) => setFormData({ ...formData, isPinned: e.target.checked })}
+                  onChange={handleFormChange('isPinned')}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700">상단 고정</span>
@@ -539,7 +549,7 @@ export default function NoticeList({ initialNotices }: NoticeListProps) {
               required
               rows={10}
               value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+              onChange={handleFormChange('content')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               placeholder="공지사항 내용을 입력하세요"
             />

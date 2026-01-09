@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ClockIcon,
@@ -282,12 +282,24 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     setIsAssignModalOpen(true)
   }
 
-  const handleDistanceChange = (value: string) => {
+  const handleDistanceChange = useCallback((value: string) => {
     const distance = parseInt(value) || 0
     const transportFee = calculateTransportFee(distance, transportSettings)
-    setAssignDistanceKm(value)
-    setAssignTransportFee(transportFee.toString())
-  }
+    startTransition(() => {
+      setAssignDistanceKm(value)
+      setAssignTransportFee(transportFee.toString())
+    })
+  }, [transportSettings])
+
+  // INP 최적화: 새 요청 폼 입력 핸들러
+  const handleNewRequestChange = useCallback((field: keyof typeof newRequest) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const value = e.target.value
+    startTransition(() => {
+      setNewRequest(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
 
   const openDetailModal = (request: Request) => {
     setDetailRequest(request)
@@ -1068,7 +1080,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               </label>
               <select
                 value={newRequest.schoolId}
-                onChange={(e) => setNewRequest({ ...newRequest, schoolId: e.target.value })}
+                onChange={handleNewRequestChange('schoolId')}
                 required
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
@@ -1086,7 +1098,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               </label>
               <select
                 value={newRequest.programId}
-                onChange={(e) => setNewRequest({ ...newRequest, programId: e.target.value })}
+                onChange={handleNewRequestChange('programId')}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">프로그램 선택</option>
@@ -1106,7 +1118,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             <input
               type="text"
               value={newRequest.customProgram}
-              onChange={(e) => setNewRequest({ ...newRequest, customProgram: e.target.value })}
+              onChange={handleNewRequestChange('customProgram')}
               placeholder="기타 프로그램명 입력"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
@@ -1120,7 +1132,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <input
                 type="number"
                 value={newRequest.sessions}
-                onChange={(e) => setNewRequest({ ...newRequest, sessions: e.target.value })}
+                onChange={handleNewRequestChange('sessions')}
                 required
                 min="1"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -1133,7 +1145,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <input
                 type="number"
                 value={newRequest.studentCount}
-                onChange={(e) => setNewRequest({ ...newRequest, studentCount: e.target.value })}
+                onChange={handleNewRequestChange('studentCount')}
                 required
                 min="1"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -1146,7 +1158,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <input
                 type="text"
                 value={newRequest.targetGrade}
-                onChange={(e) => setNewRequest({ ...newRequest, targetGrade: e.target.value })}
+                onChange={handleNewRequestChange('targetGrade')}
                 placeholder="예: 중2"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
@@ -1161,7 +1173,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <input
                 type="date"
                 value={newRequest.desiredDate}
-                onChange={(e) => setNewRequest({ ...newRequest, desiredDate: e.target.value })}
+                onChange={handleNewRequestChange('desiredDate')}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -1172,7 +1184,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <input
                 type="number"
                 value={newRequest.schoolBudget}
-                onChange={(e) => setNewRequest({ ...newRequest, schoolBudget: e.target.value })}
+                onChange={handleNewRequestChange('schoolBudget')}
                 placeholder="예: 200000"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
@@ -1185,7 +1197,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             </label>
             <textarea
               value={newRequest.requirements}
-              onChange={(e) => setNewRequest({ ...newRequest, requirements: e.target.value })}
+              onChange={handleNewRequestChange('requirements')}
               rows={3}
               placeholder="특별 요청사항이나 메모를 입력하세요"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"

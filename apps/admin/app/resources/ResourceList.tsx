@@ -104,6 +104,16 @@ export default function ResourceList({ initialResources, instructors }: Resource
     setEditingResource(null)
   }
 
+  // INP 최적화: 폼 입력 핸들러
+  const handleFormChange = useCallback((field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value
+    startTransition(() => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    })
+  }, [])
+
   const openCreateModal = () => {
     resetForm()
     setIsFormModalOpen(true)
@@ -230,13 +240,16 @@ export default function ResourceList({ initialResources, instructors }: Resource
     }
   }
 
-  const toggleInstructor = (instructorId: string) => {
-    setSelectedInstructors((prev) =>
-      prev.includes(instructorId)
-        ? prev.filter((id) => id !== instructorId)
-        : [...prev, instructorId]
-    )
-  }
+  // INP 최적화: 토글 핸들러
+  const toggleInstructor = useCallback((instructorId: string) => {
+    startTransition(() => {
+      setSelectedInstructors((prev) =>
+        prev.includes(instructorId)
+          ? prev.filter((id) => id !== instructorId)
+          : [...prev, instructorId]
+      )
+    })
+  }, [])
 
   const getCategoryInfo = (category: string) => {
     return categoryOptions.find((c) => c.value === category) || categoryOptions[0]
@@ -414,7 +427,7 @@ export default function ResourceList({ initialResources, instructors }: Resource
               type="text"
               required
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={handleFormChange('title')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               placeholder="자료 제목을 입력하세요"
             />
@@ -425,7 +438,7 @@ export default function ResourceList({ initialResources, instructors }: Resource
               <label className="block text-sm font-medium text-gray-700">분류</label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleFormChange('category')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 {categoryOptions.map((option) => (
@@ -440,7 +453,7 @@ export default function ResourceList({ initialResources, instructors }: Resource
                 <input
                   type="checkbox"
                   checked={formData.isPublic}
-                  onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+                  onChange={handleFormChange('isPublic')}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700">전체 강사에게 공개</span>
@@ -453,7 +466,7 @@ export default function ResourceList({ initialResources, instructors }: Resource
             <textarea
               rows={3}
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={handleFormChange('description')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               placeholder="자료에 대한 설명을 입력하세요"
             />
