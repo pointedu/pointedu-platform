@@ -17,25 +17,28 @@ interface Instructor {
   subjects: string[]
 }
 
-// 카카오톡 알림톡 템플릿 정보
+// 카카오톡 알림톡 템플릿 정보 (실제 카카오 템플릿 변수명)
 const KAKAO_TEMPLATES = [
   {
     type: 'INSTRUCTOR_REGISTERED',
     name: '강사등록완료',
-    description: '강사 가입 승인 시 발송',
-    variables: ['이름'],
+    description: '강사 가입 승인 시 발송 (등록일, 담당분야, 연락처 자동 입력)',
+    variables: ['등록일', '담당분야', '강사연락처'],
+    autoFilled: true, // 변수가 자동으로 채워짐
   },
   {
     type: 'CLASS_ASSIGNED',
     name: '수업배정안내',
     description: '수업 배정 시 발송',
-    variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+    variables: ['강사명', '학교명', '수업일', '수업시간', '과목명'],
+    autoFilled: false,
   },
   {
     type: 'CLASS_REMINDER_5DAYS',
-    name: '배정된 수업 5일 전',
+    name: '수업 일정 안내 (5일 전)',
     description: '수업 5일 전 리마인더',
-    variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+    variables: ['강사명', '학교명', '수업일', '수업시간', '과목명'],
+    autoFilled: false,
   },
 ]
 
@@ -132,26 +135,24 @@ export default function InstructorNotification() {
       return
     }
 
-    // 카카오톡 템플릿에 필요한 변수 확인
-    if (notificationType === 'kakao' && selectedTemplate) {
-      const requiredVars = selectedTemplate.variables.filter(v => v !== '이름')
-      if (requiredVars.length > 0) {
-        if (requiredVars.includes('학교명') && !templateData.schoolName) {
-          setResult({ success: false, message: '학교명을 입력해주세요.' })
-          return
-        }
-        if (requiredVars.includes('프로그램') && !templateData.programName) {
-          setResult({ success: false, message: '프로그램을 입력해주세요.' })
-          return
-        }
-        if (requiredVars.includes('수업일') && !templateData.classDate) {
-          setResult({ success: false, message: '수업일을 입력해주세요.' })
-          return
-        }
-        if (requiredVars.includes('수업시간') && !templateData.classTime) {
-          setResult({ success: false, message: '수업시간을 입력해주세요.' })
-          return
-        }
+    // 카카오톡 템플릿에 필요한 변수 확인 (autoFilled가 아닌 템플릿만)
+    if (notificationType === 'kakao' && selectedTemplate && !selectedTemplate.autoFilled) {
+      // 강사명은 자동 입력되므로 제외
+      if (selectedTemplate.variables.includes('학교명') && !templateData.schoolName) {
+        setResult({ success: false, message: '학교명을 입력해주세요.' })
+        return
+      }
+      if (selectedTemplate.variables.includes('과목명') && !templateData.programName) {
+        setResult({ success: false, message: '과목명(프로그램)을 입력해주세요.' })
+        return
+      }
+      if (selectedTemplate.variables.includes('수업일') && !templateData.classDate) {
+        setResult({ success: false, message: '수업일을 입력해주세요.' })
+        return
+      }
+      if (selectedTemplate.variables.includes('수업시간') && !templateData.classTime) {
+        setResult({ success: false, message: '수업시간을 입력해주세요.' })
+        return
       }
     }
 
@@ -204,11 +205,14 @@ export default function InstructorNotification() {
     if (selectedIds.length === 0) return true
     if (!selectedTemplate) return true
 
-    const requiredVars = selectedTemplate.variables.filter(v => v !== '이름')
-    if (requiredVars.includes('학교명') && !templateData.schoolName) return true
-    if (requiredVars.includes('프로그램') && !templateData.programName) return true
-    if (requiredVars.includes('수업일') && !templateData.classDate) return true
-    if (requiredVars.includes('수업시간') && !templateData.classTime) return true
+    // autoFilled 템플릿은 추가 입력 불필요
+    if (selectedTemplate.autoFilled) return false
+
+    // 수동 입력이 필요한 템플릿
+    if (selectedTemplate.variables.includes('학교명') && !templateData.schoolName) return true
+    if (selectedTemplate.variables.includes('과목명') && !templateData.programName) return true
+    if (selectedTemplate.variables.includes('수업일') && !templateData.classDate) return true
+    if (selectedTemplate.variables.includes('수업시간') && !templateData.classTime) return true
 
     return false
   }
@@ -303,10 +307,11 @@ export default function InstructorNotification() {
           </div>
         )}
 
-        {/* 카카오톡 템플릿 변수 입력 */}
-        {notificationType === 'kakao' && selectedTemplate && selectedTemplate.variables.length > 1 && (
+        {/* 카카오톡 템플릿 변수 입력 (autoFilled가 아닌 경우만) */}
+        {notificationType === 'kakao' && selectedTemplate && !selectedTemplate.autoFilled && (
           <div className="bg-yellow-50 rounded-lg p-4 space-y-4">
             <h4 className="text-sm font-medium text-yellow-800">템플릿 변수 입력</h4>
+            <p className="text-xs text-yellow-700">강사명은 선택한 강사의 이름으로 자동 입력됩니다.</p>
             <div className="grid grid-cols-2 gap-4">
               {selectedTemplate.variables.includes('학교명') && (
                 <div>
@@ -322,10 +327,10 @@ export default function InstructorNotification() {
                   />
                 </div>
               )}
-              {selectedTemplate.variables.includes('프로그램') && (
+              {selectedTemplate.variables.includes('과목명') && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    프로그램 *
+                    과목명 (체험과목) *
                   </label>
                   <input
                     type="text"
@@ -365,6 +370,17 @@ export default function InstructorNotification() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* 강사등록완료 템플릿 선택 시 안내 */}
+        {notificationType === 'kakao' && selectedTemplate?.autoFilled && (
+          <div className="bg-green-50 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-green-800">자동 입력 템플릿</h4>
+            <p className="text-xs text-green-700 mt-1">
+              이 템플릿은 등록일, 담당분야, 강사연락처가 자동으로 입력됩니다.
+              추가 입력 없이 바로 발송하실 수 있습니다.
+            </p>
           </div>
         )}
 

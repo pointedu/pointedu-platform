@@ -33,49 +33,58 @@ function createSolapiHeaders() {
   }
 }
 
-// 템플릿별 변수 생성
+// 템플릿별 변수 생성 (실제 카카오 템플릿에 등록된 변수명 사용)
 function getTemplateVariables(
   templateType: KakaoTemplateType,
   instructorName: string,
+  instructorPhone: string,
   data?: {
     message?: string
     schoolName?: string
     programName?: string
     classDate?: string
     classTime?: string
+    registrationDate?: string
+    specialties?: string
   }
 ): Record<string, string> {
   switch (templateType) {
     case 'INSTRUCTOR_REGISTERED':
-      // 강사등록완료 템플릿 변수
+      // 강사등록완료 템플릿 변수 (실제: #{등록일}, #{담당분야}, #{강사연락처})
+      const today = new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
       return {
-        '#{이름}': instructorName,
+        '#{등록일}': data?.registrationDate || today,
+        '#{담당분야}': data?.specialties || '전 분야',
+        '#{강사연락처}': instructorPhone,
       }
 
     case 'CLASS_ASSIGNED':
-      // 수업배정안내 템플릿 변수
+      // 수업배정안내 템플릿 변수 (실제: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
       return {
-        '#{이름}': instructorName,
+        '#{강사명}': instructorName,
         '#{학교명}': data?.schoolName || '',
-        '#{프로그램}': data?.programName || '',
         '#{수업일}': data?.classDate || '',
         '#{수업시간}': data?.classTime || '',
+        '#{과목명}': data?.programName || '',
       }
 
     case 'CLASS_REMINDER_5DAYS':
-      // 배정된 수업 5일 전 템플릿 변수
+      // 배정된 수업 5일 전 템플릿 변수 (실제: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
       return {
-        '#{이름}': instructorName,
+        '#{강사명}': instructorName,
         '#{학교명}': data?.schoolName || '',
-        '#{프로그램}': data?.programName || '',
         '#{수업일}': data?.classDate || '',
         '#{수업시간}': data?.classTime || '',
+        '#{과목명}': data?.programName || '',
       }
 
     default:
       return {
-        '#{이름}': instructorName,
-        '#{내용}': data?.message || '',
+        '#{강사명}': instructorName,
       }
   }
 }
@@ -159,7 +168,7 @@ export async function POST(request: NextRequest) {
         kakaoOptions: {
           pfId: pfId,
           templateId: templateId,
-          variables: getTemplateVariables(selectedTemplateType, instructor.name, {
+          variables: getTemplateVariables(selectedTemplateType, instructor.name, instructor.phoneNumber, {
             message,
             ...templateData,
           }),
@@ -217,7 +226,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 템플릿 목록 조회
+// 템플릿 목록 조회 (실제 카카오 템플릿 변수명 반영)
 export async function GET() {
   return NextResponse.json({
     templates: [
@@ -225,19 +234,20 @@ export async function GET() {
         type: 'INSTRUCTOR_REGISTERED',
         name: '강사등록완료',
         description: '강사 가입 승인 시 발송',
-        variables: ['이름'],
+        variables: ['등록일', '담당분야', '강사연락처'],
+        autoFilled: true, // 자동으로 채워지는 변수들
       },
       {
         type: 'CLASS_ASSIGNED',
         name: '수업배정안내',
         description: '수업 배정 시 발송',
-        variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+        variables: ['강사명', '학교명', '수업일', '수업시간', '과목명'],
       },
       {
         type: 'CLASS_REMINDER_5DAYS',
-        name: '배정된 수업 5일 전',
+        name: '수업 일정 안내 (5일 전)',
         description: '수업 5일 전 리마인더',
-        variables: ['이름', '학교명', '프로그램', '수업일', '수업시간'],
+        variables: ['강사명', '학교명', '수업일', '수업시간', '과목명'],
       },
     ],
   })

@@ -168,15 +168,13 @@ export async function sendAssignmentNotification(data: NotificationData): Promis
   // SMS 대체 메시지
   const smsText = `[포인트교육] ${data.instructorName}님, ${data.schoolName} ${data.programName} 수업에 배정되었습니다.\n\n일시: ${data.date}${timeStr}\n차시: ${data.sessions}차시\n\n관리자 페이지에서 확인해주세요.`
 
-  // 카카오 알림톡 템플릿 변수 (실제 템플릿에 맞춤)
-  // 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명}, #{도착시간}
+  // 카카오 알림톡 템플릿 변수 (실제 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
   const variables = {
     '#{강사명}': data.instructorName,
     '#{학교명}': data.schoolName || '',
     '#{수업일}': data.date || '',
     '#{수업시간}': data.time || '',
     '#{과목명}': data.programName || '',
-    '#{도착시간}': data.time ? `${data.time} 30분 전` : '',
   }
 
   return sendSolapiMessage(data.phoneNumber, smsText,
@@ -198,8 +196,7 @@ export async function sendReminderNotification(data: NotificationData): Promise<
   // SMS 대체 메시지
   const smsText = `[포인트교육] ${data.instructorName}님, 수업 일정 알림입니다.\n\n학교: ${data.schoolName}\n프로그램: ${data.programName}\n일시: ${data.date}${timeStr}\n차시: ${data.sessions}차시\n\n5일 후 수업이 예정되어 있습니다. 준비 부탁드립니다.`
 
-  // 카카오 알림톡 템플릿 변수 (실제 템플릿에 맞춤)
-  // 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명}
+  // 카카오 알림톡 템플릿 변수 (실제 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
   const variables = {
     '#{강사명}': data.instructorName,
     '#{학교명}': data.schoolName || '',
@@ -231,8 +228,7 @@ export async function sendInstructorApprovalNotification(data: InstructorApprova
   // SMS 대체 메시지
   const smsText = `[포인트교육] ${data.instructorName}님, 강사 등록이 승인되었습니다.\n\n이제 포인트교육 관리자 페이지에 로그인하여 수업에 지원할 수 있습니다.\n\n감사합니다.`
 
-  // 카카오 알림톡 템플릿 변수 (실제 템플릿에 맞춤)
-  // 템플릿: #{등록일}, #{담당분야}, #{강사연락처}
+  // 카카오 알림톡 템플릿 변수 (실제 템플릿: #{등록일}, #{담당분야}, #{강사연락처})
   const variables = {
     '#{등록일}': data.registrationDate || today,
     '#{담당분야}': data.specialties || '전 분야',
