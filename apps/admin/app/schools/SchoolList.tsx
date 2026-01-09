@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback } from 'react'
+import { useState, useEffect, useTransition, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BuildingOffice2Icon,
@@ -9,12 +9,15 @@ import {
   TrashIcon,
   MapPinIcon,
   PhoneIcon,
+  ArrowUpTrayIcon,
+  ArrowDownTrayIcon,
+  DocumentIcon,
 } from '@heroicons/react/24/outline'
 import FormModal from '../../components/FormModal'
 import ExportButton from '../../components/ExportButton'
 import ResponsiveList from '../../components/ResponsiveList'
 import SchoolCard from '../../components/cards/SchoolCard'
-import { exportToExcel, schoolExcelConfig } from '../../lib/excel'
+import { exportToExcel, schoolExcelConfig, parseExcelFile, downloadExcelTemplate, schoolExcelTemplateConfig, schoolTypeMapping } from '../../lib/excel'
 
 interface School {
   id: string
@@ -56,6 +59,14 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
   }, [initialSchools])
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // 엑셀 업로드 관련 상태
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [excelData, setExcelData] = useState<Record<string, unknown>[]>([])
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'MIDDLE',
@@ -192,10 +203,141 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
     })
   }
 
+  // 엑셀 업로드 관련 함수들
+  const resetExcelForm = useCallback(() => {
+    setExcelData([])
+    setUploadError(null)
+    setUploading(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
+  const handleDownloadTemplate = useCallback(() => {
+    downloadExcelTemplate(
+      '학교등록_템플릿',
+      schoolExcelTemplateConfig,
+      '학교'
+    )
+  }, [])
+
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadError(null)
+    try {
+      // 컬럼 매핑 (한글 헤더 → 영문 key)
+      const columnMapping: Record<string, string> = {}
+      schoolExcelTemplateConfig.forEach(col => {
+        columnMapping[col.header] = col.key
+      })
+
+      const rawData = await parseExcelFile(file)
+
+      if (rawData.length === 0) {
+        setUploadError('엑셀 파일에 데이터가 없습니다.')
+        return
+      }
+
+      // 컬럼명 변환 (한글 → 영문)
+      const data = rawData.map(row => {
+        const mappedRow: Record<string, unknown> = {}
+        for (const [korKey, value] of Object.entries(row)) {
+          const engKey = columnMapping[korKey] || korKey
+          mappedRow[engKey] = value
+        }
+        return mappedRow
+      })
+
+      // 데이터 유효성 검사
+      const invalidRows: number[] = []
+      data.forEach((row, index) => {
+        if (!row.name || typeof row.name !== 'string' || row.name.trim() === '') {
+          invalidRows.push(index + 2) // 헤더 행 고려
+        }
+      })
+
+      if (invalidRows.length > 0) {
+        setUploadError(`다음 행에 학교명이 없습니다: ${invalidRows.join(', ')}`)
+        return
+      }
+
+      setExcelData(data)
+    } catch (error) {
+      console.error('Excel parse error:', error)
+      setUploadError('엑셀 파일을 읽는 중 오류가 발생했습니다.')
+    }
+  }, [])
+
+  const handleExcelSubmit = useCallback(async () => {
+    if (excelData.length === 0) {
+      setUploadError('업로드할 데이터가 없습니다.')
+      return
+    }
+
+    setUploading(true)
+    setUploadError(null)
+
+    try {
+      // 데이터 전처리 (학교 유형 변환)
+      const processedData = excelData.map(row => ({
+        ...row,
+        type: row.type ? (schoolTypeMapping[String(row.type)] || String(row.type)) : undefined,
+      }))
+
+      const res = await fetch('/api/schools/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schools: processedData }),
+      })
+
+      const result = await res.json()
+
+      if (res.ok) {
+        // 모달 닫기 및 상태 초기화
+        setIsExcelModalOpen(false)
+        resetExcelForm()
+
+        // 낙관적 UI 업데이트
+        startTransition(() => {
+          if (result.schools && result.schools.length > 0) {
+            setSchools(prev => [...prev, ...result.schools.map((s: School) => ({
+              ...s,
+              _count: { requests: 0 }
+            }))])
+          }
+        })
+
+        // 백그라운드에서 서버 데이터 동기화
+        router.refresh()
+
+        alert(`${result.count}개의 학교가 등록되었습니다.`)
+      } else {
+        setUploadError(result.error || '학교 등록에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Bulk upload error:', error)
+      setUploadError('서버와 통신 중 오류가 발생했습니다.')
+    } finally {
+      setUploading(false)
+    }
+  }, [excelData, resetExcelForm, router, startTransition])
+
   return (
     <>
-      <div className="mb-4 flex justify-end gap-2">
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
         <ExportButton onClick={handleExportExcel} />
+        <button
+          onClick={() => {
+            resetExcelForm()
+            setIsExcelModalOpen(true)
+          }}
+          className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
+        >
+          <ArrowUpTrayIcon className="h-5 w-5" />
+          엑셀 업로드
+        </button>
         <button
           onClick={openCreateModal}
           className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
@@ -435,6 +577,121 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
             </button>
           </div>
         </form>
+      </FormModal>
+
+      {/* 엑셀 업로드 모달 */}
+      <FormModal
+        isOpen={isExcelModalOpen}
+        onClose={() => {
+          setIsExcelModalOpen(false)
+          resetExcelForm()
+        }}
+        title="엑셀로 학교 대량 등록"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* 템플릿 다운로드 안내 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <DocumentIcon className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-blue-800">엑셀 템플릿 안내</h4>
+                <p className="text-xs text-blue-700 mt-1">
+                  먼저 템플릿을 다운로드하여 양식에 맞게 데이터를 입력하세요.<br />
+                  학교명은 필수이며, 유형/지역은 학교명에서 자동 추론됩니다.
+                </p>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  템플릿 다운로드
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 파일 업로드 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              엑셀 파일 선택
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+
+          {/* 에러 메시지 */}
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-700">{uploadError}</p>
+            </div>
+          )}
+
+          {/* 데이터 미리보기 */}
+          {excelData.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                데이터 미리보기 ({excelData.length}건)
+              </h4>
+              <div className="max-h-60 overflow-auto border rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">학교명</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">유형</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">지역</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">전화번호</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {excelData.slice(0, 10).map((row, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-2 text-xs text-gray-500">{index + 1}</td>
+                        <td className="px-3 py-2 text-xs text-gray-900">{String(row.name || '-')}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{String(row.type || '자동')}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{String(row.region || '자동')}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{String(row.phoneNumber || '-')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {excelData.length > 10 && (
+                  <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50 text-center">
+                    외 {excelData.length - 10}건 더 있음
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 버튼 */}
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIsExcelModalOpen(false)
+                resetExcelForm()
+              }}
+              className="w-full sm:w-auto rounded-md bg-white px-4 py-3 sm:py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleExcelSubmit}
+              disabled={uploading || excelData.length === 0}
+              className="w-full sm:w-auto rounded-md bg-green-600 px-4 py-3 sm:py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? '등록 중...' : `${excelData.length}개 학교 등록`}
+            </button>
+          </div>
+        </div>
       </FormModal>
     </>
   )

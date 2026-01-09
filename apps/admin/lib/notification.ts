@@ -8,6 +8,36 @@ interface NotificationData {
   date?: string
   sessions?: number
   time?: string
+  arrivalTime?: string // 도착시간 (명시적으로 전달된 경우)
+}
+
+// 시간 문자열에서 30분 전 시간 계산 (도착시간)
+function calculateArrivalTime(classTime: string): string {
+  // 시간 형식: "10:00", "09:30", "14:00", "오전 10:00", "10시 00분" 등
+  const timeMatch = classTime.match(/(\d{1,2})[:\s시](\d{2})/)
+  if (!timeMatch) {
+    // 매칭 실패 시 원본 반환
+    return classTime
+  }
+
+  let hours = parseInt(timeMatch[1], 10)
+  let minutes = parseInt(timeMatch[2], 10)
+
+  // 30분 빼기
+  minutes -= 30
+  if (minutes < 0) {
+    minutes += 60
+    hours -= 1
+    if (hours < 0) {
+      hours = 23 // 자정을 넘어가는 경우 (거의 없겠지만)
+    }
+  }
+
+  // 시간 형식 맞추기 (09:30 형태)
+  const formattedHours = hours.toString().padStart(2, '0')
+  const formattedMinutes = minutes.toString().padStart(2, '0')
+
+  return `${formattedHours}:${formattedMinutes}`
 }
 
 interface InstructorApprovalData {
@@ -173,20 +203,26 @@ export async function sendAssignmentNotification(data: NotificationData): Promis
   const templateId = process.env.SOLAPI_TEMPLATE_ASSIGNMENT || KAKAO_TEMPLATE_IDS.CLASS_ASSIGNED
   const timeStr = data.time ? ` ${data.time}` : ''
 
-  // SMS 대체 메시지
-  const smsText = `[포인트교육] ${data.instructorName}님, ${data.schoolName} ${data.programName} 수업에 배정되었습니다.\n\n일시: ${data.date}${timeStr}\n차시: ${data.sessions}차시\n\n관리자 페이지에서 확인해주세요.`
+  // 도착시간 계산 (수업시작 30분 전)
+  const arrivalTime = data.arrivalTime || (data.time ? calculateArrivalTime(data.time) : '')
 
-  // 카카오 알림톡 템플릿 변수 (실제 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
-  const variables = {
+  // SMS 대체 메시지 (도착시간 포함)
+  const arrivalInfo = arrivalTime ? `\n도착시간: ${arrivalTime} (수업 30분 전)` : ''
+  const smsText = `[포인트교육] ${data.instructorName}님, ${data.schoolName} ${data.programName} 수업에 배정되었습니다.\n\n일시: ${data.date}${timeStr}${arrivalInfo}\n차시: ${data.sessions}차시\n\n관리자 페이지에서 확인해주세요.`
+
+  // 카카오 알림톡 템플릿 변수 (실제 템플릿: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명}, #{도착시간})
+  const variables: Record<string, string> = {
     '#{강사명}': data.instructorName,
     '#{학교명}': data.schoolName || '',
     '#{수업일}': data.date || '',
     '#{수업시간}': data.time || '',
     '#{과목명}': data.programName || '',
+    '#{도착시간}': arrivalTime,
   }
 
   console.log('Sending assignment notification with template:', templateId)
   console.log('Variables:', variables)
+  console.log('Arrival time calculated:', arrivalTime, '(from class time:', data.time, ')')
 
   return sendSolapiMessage(data.phoneNumber, smsText,
     { templateId, variables }

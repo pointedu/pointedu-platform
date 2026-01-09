@@ -193,3 +193,35 @@ export const schoolExcelConfig: ExcelColumn[] = [
   { header: '이메일', key: 'contactEmail', width: 25 },
   { header: '요청건수', key: 'requestCount', width: 10 },
 ]
+
+// 학교 엑셀 업로드 템플릿 설정
+export const schoolExcelTemplateConfig = [
+  { header: '학교명', key: 'name', example: '영주중학교', width: 25 },
+  { header: '유형', key: 'type', example: '중학교', width: 12 },
+  { header: '주소', key: 'address', example: '경북 영주시 영주로 123', width: 40 },
+  { header: '지역', key: 'region', example: '영주시', width: 12 },
+  { header: '전화번호', key: 'phoneNumber', example: '054-123-4567', width: 15 },
+  { header: '이메일', key: 'email', example: 'school@example.com', width: 25 },
+  { header: '거리(km)', key: 'distanceKm', example: '15', width: 10 },
+  { header: '교통비', key: 'transportFee', example: '15000', width: 12 },
+  { header: '전체학생수', key: 'totalStudents', example: '500', width: 12 },
+  { header: '메모', key: 'notes', example: '담당자: 홍길동', width: 30 },
+]
+
+// 학교 유형 매핑 (한글 → DB enum)
+export const schoolTypeMapping: Record<string, string> = {
+  '초등학교': 'ELEMENTARY',
+  '초등': 'ELEMENTARY',
+  '중학교': 'MIDDLE',
+  '중등': 'MIDDLE',
+  '중': 'MIDDLE',
+  '고등학교': 'HIGH',
+  '고등': 'HIGH',
+  '고': 'HIGH',
+  '특수학교': 'SPECIAL',
+  '특수': 'SPECIAL',
+  '대안학교': 'ALTERNATIVE',
+  '대안': 'ALTERNATIVE',
+  '기관': 'INSTITUTION',
+  '교육기관': 'INSTITUTION',
+}

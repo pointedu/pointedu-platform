@@ -11,6 +11,35 @@ const KAKAO_TEMPLATES = {
 
 type KakaoTemplateType = keyof typeof KAKAO_TEMPLATES
 
+// 시간 문자열에서 30분 전 시간 계산 (도착시간)
+function calculateArrivalTime(classTime: string): string {
+  // 시간 형식: "10:00", "09:30", "14:00", "오전 10:00", "10시 00분" 등
+  const timeMatch = classTime.match(/(\d{1,2})[:\s시](\d{2})/)
+  if (!timeMatch) {
+    // 매칭 실패 시 원본 반환
+    return classTime
+  }
+
+  let hours = parseInt(timeMatch[1], 10)
+  let minutes = parseInt(timeMatch[2], 10)
+
+  // 30분 빼기
+  minutes -= 30
+  if (minutes < 0) {
+    minutes += 60
+    hours -= 1
+    if (hours < 0) {
+      hours = 23 // 자정을 넘어가는 경우 (거의 없겠지만)
+    }
+  }
+
+  // 시간 형식 맞추기 (09:30 형태)
+  const formattedHours = hours.toString().padStart(2, '0')
+  const formattedMinutes = minutes.toString().padStart(2, '0')
+
+  return `${formattedHours}:${formattedMinutes}`
+}
+
 // 솔라피 API 인증 헤더 생성
 function createSolapiHeaders() {
   const apiKey = process.env.SOLAPI_API_KEY?.trim()
@@ -63,13 +92,15 @@ function getTemplateVariables(
       }
 
     case 'CLASS_ASSIGNED':
-      // 수업배정안내 템플릿 변수 (실제: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명})
+      // 수업배정안내 템플릿 변수 (실제: #{강사명}, #{학교명}, #{수업일}, #{수업시간}, #{과목명}, #{도착시간})
+      const arrivalTimeAssigned = data?.classTime ? calculateArrivalTime(data.classTime) : ''
       return {
         '#{강사명}': instructorName,
         '#{학교명}': data?.schoolName || '',
         '#{수업일}': data?.classDate || '',
         '#{수업시간}': data?.classTime || '',
         '#{과목명}': data?.programName || '',
+        '#{도착시간}': arrivalTimeAssigned,
       }
 
     case 'CLASS_REMINDER_5DAYS':
@@ -241,7 +272,7 @@ export async function GET() {
         type: 'CLASS_ASSIGNED',
         name: '수업배정안내',
         description: '수업 배정 시 발송',
-        variables: ['강사명', '학교명', '수업일', '수업시간', '과목명'],
+        variables: ['강사명', '학교명', '수업일', '수업시간', '과목명', '도착시간'],
       },
       {
         type: 'CLASS_REMINDER_5DAYS',
