@@ -154,6 +154,13 @@ async function sendSolapiMessage(
   }
 }
 
+// 카카오톡 알림톡 템플릿 ID (하드코딩 - 환경변수보다 우선)
+const KAKAO_TEMPLATE_IDS = {
+  INSTRUCTOR_REGISTERED: 'KA01TP260108025300386layhuFTYkJZ',  // 강사등록완료
+  CLASS_ASSIGNED: 'KA01TP251231035539719ZS79k8bOV2r',         // 수업배정안내
+  CLASS_REMINDER_5DAYS: 'KA01TP260106071810134mvSJxt6HmfL',   // 배정된 수업 5일 전
+}
+
 // 강사 배정 알림 (카카오 알림톡)
 export async function sendAssignmentNotification(data: NotificationData): Promise<NotificationResult> {
   const apiKey = process.env.SOLAPI_API_KEY
@@ -162,7 +169,8 @@ export async function sendAssignmentNotification(data: NotificationData): Promis
     return { success: false, error: 'Credentials not configured' }
   }
 
-  const templateId = process.env.SOLAPI_TEMPLATE_ASSIGNMENT
+  // 환경변수가 있으면 사용, 없으면 하드코딩된 템플릿 ID 사용
+  const templateId = process.env.SOLAPI_TEMPLATE_ASSIGNMENT || KAKAO_TEMPLATE_IDS.CLASS_ASSIGNED
   const timeStr = data.time ? ` ${data.time}` : ''
 
   // SMS 대체 메시지
@@ -177,8 +185,11 @@ export async function sendAssignmentNotification(data: NotificationData): Promis
     '#{과목명}': data.programName || '',
   }
 
+  console.log('Sending assignment notification with template:', templateId)
+  console.log('Variables:', variables)
+
   return sendSolapiMessage(data.phoneNumber, smsText,
-    templateId ? { templateId, variables } : undefined
+    { templateId, variables }
   )
 }
 
@@ -190,7 +201,8 @@ export async function sendReminderNotification(data: NotificationData): Promise<
     return { success: false, error: 'Credentials not configured' }
   }
 
-  const templateId = process.env.SOLAPI_TEMPLATE_REMINDER
+  // 환경변수가 있으면 사용, 없으면 하드코딩된 템플릿 ID 사용
+  const templateId = process.env.SOLAPI_TEMPLATE_REMINDER || KAKAO_TEMPLATE_IDS.CLASS_REMINDER_5DAYS
   const timeStr = data.time ? ` ${data.time}` : ''
 
   // SMS 대체 메시지
@@ -205,8 +217,11 @@ export async function sendReminderNotification(data: NotificationData): Promise<
     '#{과목명}': data.programName || '',
   }
 
+  console.log('Sending reminder notification with template:', templateId)
+  console.log('Variables:', variables)
+
   return sendSolapiMessage(data.phoneNumber, smsText,
-    templateId ? { templateId, variables } : undefined
+    { templateId, variables }
   )
 }
 
@@ -218,7 +233,8 @@ export async function sendInstructorApprovalNotification(data: InstructorApprova
     return { success: false, error: 'Credentials not configured' }
   }
 
-  const templateId = process.env.SOLAPI_TEMPLATE_INSTRUCTOR_APPROVED
+  // 환경변수가 있으면 사용, 없으면 하드코딩된 템플릿 ID 사용
+  const templateId = process.env.SOLAPI_TEMPLATE_INSTRUCTOR_APPROVED || KAKAO_TEMPLATE_IDS.INSTRUCTOR_REGISTERED
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -235,8 +251,11 @@ export async function sendInstructorApprovalNotification(data: InstructorApprova
     '#{강사연락처}': data.phoneNumber,
   }
 
+  console.log('Sending instructor approval notification with template:', templateId)
+  console.log('Variables:', variables)
+
   return sendSolapiMessage(data.phoneNumber, smsText,
-    templateId ? { templateId, variables } : undefined
+    { templateId, variables }
   )
 }
 
