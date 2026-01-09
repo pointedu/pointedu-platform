@@ -1,12 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../lib/auth'
 import { prisma } from '@pointedu/database'
-import { writeFile, mkdir, readdir, stat, unlink } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { uploadFile, listFiles, deleteFile, ensureBucket, STORAGE_BUCKETS } from '../../../lib/supabase'
 
-const BACKUP_DIR = path.join(process.cwd(), 'backups')
 const MAX_BACKUPS = 30
 
 // GET - 백업 목록 조회
@@ -17,30 +16,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized - SUPER_ADMIN only' }, { status: 401 })
     }
 
-    if (!existsSync(BACKUP_DIR)) {
-      return NextResponse.json({ backups: [], totalSize: 0, totalCount: 0 })
-    }
+    // Supabase Storage에서 백업 파일 목록 조회
+    const files = await listFiles(STORAGE_BUCKETS.BACKUPS)
 
-    const files = await readdir(BACKUP_DIR)
-    const backupFiles = files.filter(f => f.startsWith('backup_'))
+    const backups = files
+      .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
+      .map(f => ({
+        name: f.name,
+        size: f.metadata?.size || 0,
+        sizeFormatted: formatBytes(Number(f.metadata?.size) || 0),
+        createdAt: f.created_at || new Date().toISOString(),
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-    const backups = await Promise.all(
-      backupFiles.map(async name => {
-        const filepath = path.join(BACKUP_DIR, name)
-        const stats = await stat(filepath)
-        return {
-          name,
-          size: stats.size,
-          sizeFormatted: formatBytes(stats.size),
-          createdAt: stats.mtime.toISOString(),
-        }
-      })
-    )
-
-    // 최신순 정렬
-    backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-    const totalSize = backups.reduce((sum, b) => sum + b.size, 0)
+    const totalSize = backups.reduce((sum, b) => sum + Number(b.size), 0)
 
     return NextResponse.json({
       backups,
@@ -65,10 +54,8 @@ export async function POST(_request: NextRequest) {
 
     const startTime = Date.now()
 
-    // 백업 디렉토리 생성
-    if (!existsSync(BACKUP_DIR)) {
-      await mkdir(BACKUP_DIR, { recursive: true })
-    }
+    // backups 버킷 확인/생성 (비공개)
+    await ensureBucket(STORAGE_BUCKETS.BACKUPS, false)
 
     // 모든 테이블 데이터 조회
     const [
@@ -138,14 +125,24 @@ export async function POST(_request: NextRequest) {
     // 파일명 생성
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const filename = `backup_${timestamp}.json`
-    const filepath = path.join(BACKUP_DIR, filename)
 
-    // JSON 파일 저장
+    // JSON 파일을 Supabase Storage에 업로드
     const jsonContent = JSON.stringify(backupData, null, 2)
-    await writeFile(filepath, jsonContent, 'utf-8')
+    const buffer = Buffer.from(jsonContent, 'utf-8')
 
-    const stats = await stat(filepath)
+    const uploadResult = await uploadFile(
+      STORAGE_BUCKETS.BACKUPS,
+      filename,
+      buffer,
+      'application/json'
+    )
+
+    if (!uploadResult) {
+      return NextResponse.json({ error: 'Failed to upload backup to storage' }, { status: 500 })
+    }
+
     const duration = Date.now() - startTime
+    const size = buffer.length
 
     // 오래된 백업 정리
     await cleanOldBackups()
@@ -153,11 +150,11 @@ export async function POST(_request: NextRequest) {
     return NextResponse.json({
       success: true,
       filename,
-      size: stats.size,
-      sizeFormatted: formatBytes(stats.size),
+      size,
+      sizeFormatted: formatBytes(size),
       duration,
       recordCounts: backupData.metadata.tables,
-      message: `백업이 성공적으로 생성되었습니다. (${formatBytes(stats.size)}, ${duration}ms)`,
+      message: `백업이 성공적으로 생성되었습니다. (${formatBytes(size)}, ${duration}ms)`,
     })
   } catch (error) {
     console.error('Backup failed:', error)
@@ -185,13 +182,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
 
-    const filepath = path.join(BACKUP_DIR, filename)
-
-    if (!existsSync(filepath)) {
-      return NextResponse.json({ error: 'Backup not found' }, { status: 404 })
+    // 경로 순회 공격 방지
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
 
-    await unlink(filepath)
+    const deleted = await deleteFile(STORAGE_BUCKETS.BACKUPS, filename)
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Failed to delete backup' }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true, message: '백업이 삭제되었습니다.' })
   } catch (error) {
@@ -203,29 +203,20 @@ export async function DELETE(request: NextRequest) {
 // 오래된 백업 정리
 async function cleanOldBackups(): Promise<void> {
   try {
-    if (!existsSync(BACKUP_DIR)) return
+    const files = await listFiles(STORAGE_BUCKETS.BACKUPS)
 
-    const files = await readdir(BACKUP_DIR)
     const backupFiles = files
-      .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
-      .map(f => ({
-        name: f,
-        path: path.join(BACKUP_DIR, f),
-      }))
+      .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        return dateB - dateA
+      })
 
-    const filesWithStats = await Promise.all(
-      backupFiles.map(async f => ({
-        ...f,
-        mtime: (await stat(f.path)).mtime,
-      }))
-    )
-
-    filesWithStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
-
-    if (filesWithStats.length > MAX_BACKUPS) {
-      const filesToDelete = filesWithStats.slice(MAX_BACKUPS)
+    if (backupFiles.length > MAX_BACKUPS) {
+      const filesToDelete = backupFiles.slice(MAX_BACKUPS)
       for (const file of filesToDelete) {
-        await unlink(file.path)
+        await deleteFile(STORAGE_BUCKETS.BACKUPS, file.name)
         console.log(`Deleted old backup: ${file.name}`)
       }
     }

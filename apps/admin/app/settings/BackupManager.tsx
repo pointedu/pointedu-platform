@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   CloudArrowUpIcon,
+  CloudArrowDownIcon,
   TrashIcon,
   ArrowPathIcon,
   CheckCircleIcon,
@@ -66,6 +67,30 @@ export default function BackupManager() {
       setMessage({ type: 'error', text: '백업 생성 중 오류가 발생했습니다.' })
     } finally {
       setCreating(false)
+    }
+  }
+
+  const downloadBackup = async (filename: string) => {
+    try {
+      const res = await fetch(`/api/backup/download?filename=${encodeURIComponent(filename)}`)
+
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        setMessage({ type: 'success', text: '백업 다운로드가 시작되었습니다.' })
+      } else {
+        const data = await res.json()
+        setMessage({ type: 'error', text: data.error || '다운로드 실패' })
+      }
+    } catch (_error) {
+      setMessage({ type: 'error', text: '다운로드 중 오류가 발생했습니다.' })
     }
   }
 
@@ -220,13 +245,20 @@ export default function BackupManager() {
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {formatDate(backup.createdAt)}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <button
+                        onClick={() => downloadBackup(backup.name)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="다운로드"
+                      >
+                        <CloudArrowDownIcon className="h-4 w-4 inline" />
+                      </button>
                       <button
                         onClick={() => deleteBackup(backup.name)}
                         className="text-red-600 hover:text-red-900"
                         title="삭제"
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        <TrashIcon className="h-4 w-4 inline" />
                       </button>
                     </td>
                   </tr>

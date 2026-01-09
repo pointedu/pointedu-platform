@@ -27,6 +27,7 @@ export const STORAGE_BUCKETS = {
   RESOURCES: 'resources',
   LOGOS: 'logos',
   NOTICES: 'notices',
+  BACKUPS: 'backups',
 } as const
 
 /**
@@ -136,6 +137,33 @@ export async function listFiles(bucket: string, folder?: string): Promise<Supaba
  */
 export function getPublicUrl(bucket: string, filePath: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`
+}
+
+/**
+ * 파일 다운로드 (비공개 버킷용)
+ */
+export async function downloadFile(bucket: string, filePath: string): Promise<Buffer | null> {
+  try {
+    const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${filePath}`
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('Download error:', error)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    return Buffer.from(arrayBuffer)
+  } catch (error) {
+    console.error('Download failed:', error)
+    return null
+  }
 }
 
 /**

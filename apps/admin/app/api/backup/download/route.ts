@@ -3,11 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../lib/auth'
-import { readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
-
-const BACKUP_DIR = path.join(process.cwd(), 'backups')
+import { downloadFile, STORAGE_BUCKETS } from '../../../../lib/supabase'
 
 // GET - 백업 파일 다운로드
 export async function GET(request: NextRequest) {
@@ -34,15 +30,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
 
-    const filepath = path.join(BACKUP_DIR, filename)
+    // Supabase Storage에서 파일 다운로드
+    const fileContent = await downloadFile(STORAGE_BUCKETS.BACKUPS, filename)
 
-    if (!existsSync(filepath)) {
+    if (!fileContent) {
       return NextResponse.json({ error: 'Backup not found' }, { status: 404 })
     }
 
-    const fileContent = await readFile(filepath)
-
-    return new NextResponse(fileContent, {
+    return new NextResponse(new Uint8Array(fileContent), {
       headers: {
         'Content-Type': 'application/json',
         'Content-Disposition': `attachment; filename="${filename}"`,
