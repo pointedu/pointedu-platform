@@ -8,12 +8,14 @@ import {
   CheckCircleIcon,
   GlobeAltIcon,
   LockClosedIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline'
 import AutomateButton from './AutomateButton'
 import FormModal from '../../components/FormModal'
 import ExportButton from '../../components/ExportButton'
 import { exportToExcel, requestExcelConfig } from '../../lib/excel'
 import ResponsiveList from '../../components/ResponsiveList'
+import SearchableSelect from '../../components/SearchableSelect'
 import RequestCard from '../../components/cards/RequestCard'
 import AdvancedSearchFilter from '../../components/AdvancedSearchFilter'
 import BulkRequestModal from './BulkRequestModal'
@@ -52,6 +54,10 @@ interface Request {
   assignments: Array<{
     id: string
     status: string
+    scheduledDate?: string | null
+    scheduledTime?: string | null
+    distanceKm?: number | null
+    transportFee?: number | null
     instructor: {
       id: string
       name: string
@@ -177,6 +183,25 @@ export default function RequestList({ initialRequests, availableInstructors, sch
   const [detailRequest, setDetailRequest] = useState<Request | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  // 배정 수정 모달 상태
+  const [isEditAssignModalOpen, setIsEditAssignModalOpen] = useState(false)
+  const [editingAssignment, setEditingAssignment] = useState<{
+    id: string
+    requestId: string
+    instructorId: string
+    scheduledDate: string
+    scheduledTime: string
+    distanceKm: string
+    transportFee: string
+    schoolName: string
+    programName: string
+  } | null>(null)
+  const [editInstructorId, setEditInstructorId] = useState('')
+  const [editScheduledDate, setEditScheduledDate] = useState('')
+  const [editScheduledTime, setEditScheduledTime] = useState('')
+  const [editDistanceKm, setEditDistanceKm] = useState('')
+  const [editTransportFee, setEditTransportFee] = useState('')
+  const [editReason, setEditReason] = useState('')
   const [newRequest, setNewRequest] = useState({
     schoolId: '',
     programId: '',
@@ -185,6 +210,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     studentCount: '25',
     targetGrade: '',
     desiredDate: '',
+    desiredTime: '',
     alternateDate: '',
     schoolBudget: '',
     requirements: '',
@@ -328,6 +354,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
           studentCount: '25',
           targetGrade: '',
           desiredDate: '',
+          desiredTime: '',
           alternateDate: '',
           schoolBudget: '',
           requirements: '',
@@ -409,6 +436,78 @@ export default function RequestList({ initialRequests, availableInstructors, sch
     } catch (error) {
       console.error('Failed to cancel assignment:', error)
       alert('수업 취소 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 배정 수정 모달 열기
+  const openEditAssignModal = (request: Request, assignment: Request['assignments'][0]) => {
+    setEditingAssignment({
+      id: assignment.id,
+      requestId: request.id,
+      instructorId: assignment.instructor.id,
+      scheduledDate: assignment.scheduledDate ? assignment.scheduledDate.split('T')[0] : '',
+      scheduledTime: assignment.scheduledTime || '',
+      distanceKm: assignment.distanceKm?.toString() || '',
+      transportFee: assignment.transportFee?.toString() || '',
+      schoolName: request.school.name,
+      programName: request.program?.name || request.customProgram || '',
+    })
+    setEditInstructorId(assignment.instructor.id)
+    setEditScheduledDate(assignment.scheduledDate ? assignment.scheduledDate.split('T')[0] : '')
+    setEditScheduledTime(assignment.scheduledTime || '')
+    setEditDistanceKm(assignment.distanceKm?.toString() || '')
+    setEditTransportFee(assignment.transportFee?.toString() || '')
+    setEditReason('')
+    setIsEditAssignModalOpen(true)
+  }
+
+  // 배정 수정 거리 변경 핸들러
+  const handleEditDistanceChange = useCallback((value: string) => {
+    const distance = parseInt(value) || 0
+    const fee = calculateTransportFee(distance, transportSettings)
+    startTransition(() => {
+      setEditDistanceKm(value)
+      setEditTransportFee(fee.toString())
+    })
+  }, [transportSettings])
+
+  // 배정 수정 제출
+  const handleEditAssignment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingAssignment) return
+
+    setLoading(true)
+
+    try {
+      const res = await fetch(`/api/assignments/${editingAssignment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instructorId: editInstructorId,
+          scheduledDate: editScheduledDate || null,
+          scheduledTime: editScheduledTime || null,
+          distanceKm: editDistanceKm,
+          transportFee: editTransportFee,
+          reason: editReason,
+          sendNotification: editInstructorId !== editingAssignment.instructorId, // 강사가 변경된 경우에만 알림
+        }),
+      })
+
+      const result = await res.json()
+
+      if (res.ok) {
+        alert(result.message || '배정이 수정되었습니다.')
+        setIsEditAssignModalOpen(false)
+        setEditingAssignment(null)
+        router.refresh()
+      } else {
+        alert(result.error || '배정 수정에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to update assignment:', error)
+      alert('배정 수정 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -1009,43 +1108,75 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             {detailRequest.assignments && detailRequest.assignments.length > 0 && (
               <div>
                 <h4 className="font-semibold text-gray-900 mb-2">배정 강사</h4>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {detailRequest.assignments.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                      <div>
-                        <p className="font-medium">{assignment.instructor.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {assignment.status === 'CANCELLED' ? '취소됨' :
-                           assignment.status === 'CONFIRMED' ? '확정됨' :
-                           assignment.status === 'COMPLETED' ? '완료' : '제안됨'}
-                        </p>
+                    <div key={assignment.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-lg">{assignment.instructor.name}</p>
+                          <span className={`text-sm px-2 py-1 rounded ${
+                            assignment.status === 'CANCELLED'
+                              ? 'bg-red-100 text-red-800'
+                              : assignment.status === 'CONFIRMED'
+                              ? 'bg-green-100 text-green-800'
+                              : assignment.status === 'COMPLETED'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {assignment.status === 'CANCELLED' ? '취소됨' :
+                             assignment.status === 'CONFIRMED' ? '확정됨' :
+                             assignment.status === 'COMPLETED' ? '완료' : '제안됨'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {assignment.status !== 'CANCELLED' && assignment.status !== 'COMPLETED' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setIsDetailModalOpen(false)
+                                  openEditAssignModal(detailRequest, assignment)
+                                }}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                <PencilSquareIcon className="h-4 w-4" />
+                                수정
+                              </button>
+                              <button
+                                onClick={() => handleCancelAssignment(
+                                  detailRequest.id,
+                                  assignment.id,
+                                  assignment.instructor.name
+                                )}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                취소
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm px-2 py-1 rounded ${
-                          assignment.status === 'CANCELLED'
-                            ? 'bg-red-100 text-red-800'
-                            : assignment.status === 'CONFIRMED'
-                            ? 'bg-green-100 text-green-800'
-                            : assignment.status === 'COMPLETED'
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {assignment.status === 'CANCELLED' ? '취소됨' :
-                           assignment.status === 'CONFIRMED' ? '확정됨' :
-                           assignment.status === 'COMPLETED' ? '완료' : '제안됨'}
-                        </span>
-                        {assignment.status !== 'CANCELLED' && assignment.status !== 'COMPLETED' && (
-                          <button
-                            onClick={() => handleCancelAssignment(
-                              detailRequest.id,
-                              assignment.id,
-                              assignment.instructor.name
-                            )}
-                            className="text-xs text-red-600 hover:text-red-800 underline"
-                          >
-                            취소
-                          </button>
-                        )}
+                      {/* 배정 상세 정보 */}
+                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mt-2 border-t border-gray-200 pt-2">
+                        <div>
+                          <span className="text-gray-400">수업일:</span>{' '}
+                          {assignment.scheduledDate
+                            ? new Date(assignment.scheduledDate).toLocaleDateString('ko-KR')
+                            : '미정'}
+                        </div>
+                        <div>
+                          <span className="text-gray-400">수업시간:</span>{' '}
+                          {assignment.scheduledTime || '미정'}
+                        </div>
+                        <div>
+                          <span className="text-gray-400">거리:</span>{' '}
+                          {assignment.distanceKm ? `${assignment.distanceKm}km` : '미입력'}
+                        </div>
+                        <div>
+                          <span className="text-gray-400">교통비:</span>{' '}
+                          {assignment.transportFee
+                            ? `${Number(assignment.transportFee).toLocaleString()}원`
+                            : '미정'}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1078,36 +1209,42 @@ export default function RequestList({ initialRequests, availableInstructors, sch
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 학교 *
               </label>
-              <select
+              <SearchableSelect
+                options={schools.map((school) => ({
+                  value: school.id,
+                  label: school.name,
+                  subLabel: school.region,
+                }))}
                 value={newRequest.schoolId}
-                onChange={handleNewRequestChange('schoolId')}
+                onChange={(value) => {
+                  startTransition(() => {
+                    setNewRequest(prev => ({ ...prev, schoolId: value }))
+                  })
+                }}
+                placeholder="학교 선택 또는 검색..."
+                searchPlaceholder="학교명으로 검색..."
                 required
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">학교 선택</option>
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name} ({school.region})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 프로그램
               </label>
-              <select
+              <SearchableSelect
+                options={programs.map((program) => ({
+                  value: program.id,
+                  label: program.name,
+                  subLabel: program.category,
+                }))}
                 value={newRequest.programId}
-                onChange={handleNewRequestChange('programId')}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">프로그램 선택</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {program.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => {
+                  startTransition(() => {
+                    setNewRequest(prev => ({ ...prev, programId: value }))
+                  })
+                }}
+                placeholder="프로그램 선택 또는 검색..."
+                searchPlaceholder="프로그램명으로 검색..."
+              />
             </div>
           </div>
 
@@ -1165,7 +1302,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 희망 날짜
@@ -1176,6 +1313,18 @@ export default function RequestList({ initialRequests, availableInstructors, sch
                 onChange={handleNewRequestChange('desiredDate')}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                희망 시간
+              </label>
+              <input
+                type="time"
+                value={newRequest.desiredTime || ''}
+                onChange={handleNewRequestChange('desiredTime')}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-gray-400">예: 09:00, 13:30</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1221,6 +1370,172 @@ export default function RequestList({ initialRequests, availableInstructors, sch
             </button>
           </div>
         </form>
+      </FormModal>
+
+      {/* Edit Assignment Modal */}
+      <FormModal
+        isOpen={isEditAssignModalOpen}
+        onClose={() => {
+          setIsEditAssignModalOpen(false)
+          setEditingAssignment(null)
+        }}
+        title="배정 수정"
+        size="lg"
+      >
+        {editingAssignment && (
+          <form onSubmit={handleEditAssignment} className="space-y-4">
+            {/* 요청 정보 요약 */}
+            <div className="rounded-lg bg-blue-50 p-4">
+              <h4 className="font-medium text-blue-900">{editingAssignment.schoolName}</h4>
+              <p className="text-sm text-blue-700 mt-1">{editingAssignment.programName}</p>
+            </div>
+
+            {/* 강사 변경 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                강사 선택 *
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2">
+                {availableInstructors.filter(i => i.status === 'ACTIVE').map((instructor) => {
+                  const isCurrentInstructor = instructor.id === editingAssignment.instructorId
+                  const isSelected = instructor.id === editInstructorId
+
+                  return (
+                    <label
+                      key={instructor.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="editInstructor"
+                        value={instructor.id}
+                        checked={isSelected}
+                        onChange={() => setEditInstructorId(instructor.id)}
+                        className="sr-only"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{instructor.name}</span>
+                          {isCurrentInstructor && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                              현재 배정
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {instructor.homeBase} · {instructor.rangeKm}km
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircleIcon className="h-5 w-5 text-blue-500" />
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+              {editInstructorId !== editingAssignment.instructorId && (
+                <p className="mt-2 text-xs text-orange-600">
+                  ⚠️ 강사를 변경하면 배정 상태가 &quot;제안됨&quot;으로 변경되고 알림이 발송됩니다.
+                </p>
+              )}
+            </div>
+
+            {/* 일정 변경 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  수업 날짜 *
+                </label>
+                <input
+                  type="date"
+                  value={editScheduledDate}
+                  onChange={(e) => setEditScheduledDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  수업 시간
+                </label>
+                <input
+                  type="time"
+                  value={editScheduledTime}
+                  onChange={(e) => setEditScheduledTime(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 거리 및 교통비 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  강사-학교 거리 (km)
+                </label>
+                <input
+                  type="number"
+                  value={editDistanceKm}
+                  onChange={(e) => handleEditDistanceChange(e.target.value)}
+                  placeholder="거리 입력"
+                  min="0"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  교통비 (원)
+                </label>
+                <input
+                  type="number"
+                  value={editTransportFee}
+                  onChange={(e) => setEditTransportFee(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 수정 사유 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                수정 사유 (선택)
+              </label>
+              <input
+                type="text"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="예: 강사 일정 변경, 학교 요청 등"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditAssignModalOpen(false)
+                  setEditingAssignment(null)
+                }}
+                className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !editInstructorId || !editScheduledDate}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+              >
+                {loading ? '수정 중...' : '수정 완료'}
+              </button>
+            </div>
+          </form>
+        )}
       </FormModal>
 
       {/* Bulk Request Modal */}

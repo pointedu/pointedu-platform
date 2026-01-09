@@ -41,6 +41,7 @@ interface PaymentStatementProps {
     tel: string
     bizNumber: string
   }
+  logoUrl?: string | null
 }
 
 const defaultCompanyInfo = {
@@ -52,7 +53,7 @@ const defaultCompanyInfo = {
 }
 
 const PaymentStatement = forwardRef<HTMLDivElement, PaymentStatementProps>(
-  ({ payment, companyInfo = defaultCompanyInfo }, ref) => {
+  ({ payment, companyInfo = defaultCompanyInfo, logoUrl }, ref) => {
     const formatDate = (dateStr?: string | null) => {
       if (!dateStr) return '-'
       return new Date(dateStr).toLocaleDateString('ko-KR')
@@ -80,6 +81,17 @@ const PaymentStatement = forwardRef<HTMLDivElement, PaymentStatementProps>(
       >
         {/* 헤더 */}
         <div className="text-center mb-8">
+          {logoUrl && (
+            <div className="flex justify-center mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={logoUrl}
+                alt={companyInfo.name}
+                className="h-16 object-contain"
+                style={{ maxWidth: '200px' }}
+              />
+            </div>
+          )}
           <h1 className="text-2xl font-bold mb-2">강 사 비 정 산 서</h1>
           <p className="text-gray-600">{formatMonth(payment.accountingMonth)} 정산</p>
         </div>

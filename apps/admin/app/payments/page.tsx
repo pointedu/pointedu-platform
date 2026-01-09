@@ -3,6 +3,15 @@ export const revalidate = 60 // Revalidate every 60 seconds
 import { prisma } from '@pointedu/database'
 import PaymentList from './PaymentList'
 import { serializeDecimalArray } from '../../lib/utils'
+import { getPublicUrl, listFiles, STORAGE_BUCKETS } from '../../lib/supabase'
+
+interface CompanyInfo {
+  name: string
+  ceo: string
+  address: string
+  tel: string
+  bizNumber: string
+}
 
 interface Payment {
   id: string
@@ -65,8 +74,63 @@ async function getPayments() {
   }
 }
 
+async function getCompanyInfo(): Promise<{ companyInfo: CompanyInfo; logoUrl: string | null }> {
+  try {
+    // 회사 정보 설정 가져오기
+    const settings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: ['company_name', 'company_ceo', 'company_address', 'company_phone', 'business_number'],
+        },
+      },
+    })
+
+    const settingsMap: Record<string, string> = {}
+    settings.forEach((s) => {
+      settingsMap[s.key] = s.value
+    })
+
+    const companyInfo: CompanyInfo = {
+      name: settingsMap['company_name'] || '(주)포인트교육',
+      ceo: settingsMap['company_ceo'] || '대표자',
+      address: settingsMap['company_address'] || '경상북도 영주시',
+      tel: settingsMap['company_phone'] || '054-000-0000',
+      bizNumber: settingsMap['business_number'] || '000-00-00000',
+    }
+
+    // 로고 URL 가져오기
+    let logoUrl: string | null = null
+    try {
+      const files = await listFiles(STORAGE_BUCKETS.LOGOS)
+      const logoFile = files.find((f: { name?: string }) => f.name && f.name.startsWith('company-logo'))
+      if (logoFile) {
+        logoUrl = getPublicUrl(STORAGE_BUCKETS.LOGOS, logoFile.name)
+      }
+    } catch (logoError) {
+      console.error('Failed to fetch logo:', logoError)
+    }
+
+    return { companyInfo, logoUrl }
+  } catch (error) {
+    console.error('Failed to fetch company info:', error)
+    return {
+      companyInfo: {
+        name: '(주)포인트교육',
+        ceo: '대표자',
+        address: '경상북도 영주시',
+        tel: '054-000-0000',
+        bizNumber: '000-00-00000',
+      },
+      logoUrl: null,
+    }
+  }
+}
+
 export default async function PaymentsPage() {
-  const rawPayments = await getPayments()
+  const [rawPayments, { companyInfo, logoUrl }] = await Promise.all([
+    getPayments(),
+    getCompanyInfo(),
+  ])
   const payments = rawPayments as unknown as Payment[]
 
   const summary = {
@@ -88,7 +152,12 @@ export default async function PaymentsPage() {
         </div>
       </div>
 
-      <PaymentList initialPayments={payments} summary={summary} />
+      <PaymentList
+        initialPayments={payments}
+        summary={summary}
+        companyInfo={companyInfo}
+        logoUrl={logoUrl}
+      />
     </div>
   )
 }

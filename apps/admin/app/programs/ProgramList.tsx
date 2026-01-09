@@ -39,9 +39,14 @@ const categoryLabels: Record<string, string> = {
   OTHER: '기타',
 }
 
+// 카테고리 탭 순서 정의
+const categoryOrder = ['전체', 'FOURTHIND', 'CULTURE', 'MEDICAL', 'PROFESSIONAL', 'STEAM', 'EXPERIENCE', 'CAREER', 'OTHER']
+
 export default function ProgramList({ initialPrograms }: { initialPrograms: Program[] }) {
   const router = useRouter()
   const [programs, setPrograms] = useState(initialPrograms)
+  const [filteredPrograms, setFilteredPrograms] = useState(initialPrograms)
+  const [activeCategory, setActiveCategory] = useState('전체')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // useTransition for non-blocking UI updates
@@ -52,6 +57,35 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
   useEffect(() => {
     setPrograms(initialPrograms)
   }, [initialPrograms])
+
+  // 카테고리별 필터링
+  useEffect(() => {
+    startTransition(() => {
+      if (activeCategory === '전체') {
+        setFilteredPrograms(programs)
+      } else {
+        setFilteredPrograms(
+          programs.filter((program) => program.category === activeCategory)
+        )
+      }
+    })
+  }, [activeCategory, programs])
+
+  // 카테고리별 카운트 계산
+  const categoryCounts: Record<string, number> = {
+    전체: programs.length,
+    ...Object.keys(categoryLabels).reduce((acc, category) => {
+      acc[category] = programs.filter((p) => p.category === category).length
+      return acc
+    }, {} as Record<string, number>),
+  }
+
+  // 탭 변경 핸들러
+  const handleCategoryChange = useCallback((category: string) => {
+    startTransition(() => {
+      setActiveCategory(category)
+    })
+  }, [])
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -268,15 +302,51 @@ export default function ProgramList({ initialPrograms }: { initialPrograms: Prog
         </button>
       </div>
 
+      {/* 카테고리별 탭 필터 */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-2 overflow-x-auto pb-px" aria-label="카테고리별 필터">
+          {categoryOrder.map((category) => {
+            const count = categoryCounts[category] || 0
+            const isActive = activeCategory === category
+            const label = category === '전체' ? '전체' : categoryLabels[category]
+            return (
+              <button
+                key={category}
+                onClick={() => handleCategoryChange(category)}
+                disabled={isPending}
+                className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                } ${isPending ? 'opacity-50' : ''}`}
+              >
+                {label}
+                <span
+                  className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {programs.length === 0 ? (
+        {filteredPrograms.length === 0 ? (
           <div className="col-span-full rounded-lg bg-white p-12 text-center shadow">
             <AcademicCapIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 프로그램이 없습니다</h3>
+            <h3 className="mt-2 text-sm font-semibold text-gray-900">
+              {activeCategory === '전체' ? '등록된 프로그램이 없습니다' : `${categoryLabels[activeCategory] || activeCategory} 카테고리에 등록된 프로그램이 없습니다`}
+            </h3>
             <p className="mt-1 text-sm text-gray-500">새 프로그램을 등록해주세요.</p>
           </div>
         ) : (
-          programs.map((program) => (
+          filteredPrograms.map((program) => (
             <div
               key={program.id}
               className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow"

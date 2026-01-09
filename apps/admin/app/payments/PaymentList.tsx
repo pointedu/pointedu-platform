@@ -53,6 +53,14 @@ interface Payment {
   }
 }
 
+interface CompanyInfo {
+  name: string
+  ceo: string
+  address: string
+  tel: string
+  bizNumber: string
+}
+
 interface PaymentListProps {
   initialPayments: Payment[]
   summary: {
@@ -62,6 +70,8 @@ interface PaymentListProps {
     paid: number
     totalAmount: number
   }
+  companyInfo?: CompanyInfo
+  logoUrl?: string | null
 }
 
 const statusLabels: Record<string, string> = {
@@ -96,7 +106,7 @@ const nextStatusLabel: Record<string, string> = {
   PROCESSING: '지급 완료',
 }
 
-export default function PaymentList({ initialPayments, summary }: PaymentListProps) {
+export default function PaymentList({ initialPayments, summary, companyInfo, logoUrl }: PaymentListProps) {
   const router = useRouter()
   const [payments, setPayments] = useState(initialPayments)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
@@ -635,6 +645,8 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
                     request: statementPayment.assignment.request,
                   },
                 }}
+                companyInfo={companyInfo}
+                logoUrl={logoUrl}
               />
             </div>
           </div>

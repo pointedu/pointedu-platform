@@ -86,27 +86,6 @@ const statusLabels = {
 
 const filters = [
   {
-    key: 'instructorType',
-    label: '강사 유형',
-    options: [
-      { value: 'INTERNAL', label: '내부 강사' },
-      { value: 'EXTERNAL', label: '외부 강사' },
-    ],
-  },
-  {
-    key: 'status',
-    label: '상태',
-    multiple: true,
-    options: [
-      { value: 'PENDING', label: '승인대기' },
-      { value: 'ACTIVE', label: '활동중' },
-      { value: 'INACTIVE', label: '휴면' },
-      { value: 'ON_LEAVE', label: '휴직' },
-      { value: 'TERMINATED', label: '퇴사' },
-      { value: 'REJECTED', label: '거절됨' },
-    ],
-  },
-  {
     key: 'homeBase',
     label: '거주지',
     multiple: true,
@@ -150,16 +129,43 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   const router = useRouter()
   const [instructors, setInstructors] = useState(initialInstructors)
   const [filteredInstructors, setFilteredInstructors] = useState(initialInstructors)
-
-  // initialInstructors가 변경되면 상태 업데이트
-  useEffect(() => {
-    setInstructors(initialInstructors)
-    setFilteredInstructors(initialInstructors)
-  }, [initialInstructors])
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})
+  // 강사 분류 탭 상태
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive' | 'terminated' | 'external'>('active')
   const [currentSort, setCurrentSort] = useState<{ key: string; label: string; direction: 'asc' | 'desc' } | null>(null)
+
+  // initialInstructors가 변경되면 상태 업데이트 및 탭 필터 적용
+  useEffect(() => {
+    setInstructors(initialInstructors)
+    // 탭 기반 필터링 적용
+    let filtered = initialInstructors
+    switch (activeTab) {
+      case 'active':
+        filtered = initialInstructors.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          ['ACTIVE', 'PENDING', 'ON_LEAVE'].includes(i.status)
+        )
+        break
+      case 'inactive':
+        filtered = initialInstructors.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          i.status === 'INACTIVE'
+        )
+        break
+      case 'terminated':
+        filtered = initialInstructors.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          ['TERMINATED', 'REJECTED'].includes(i.status)
+        )
+        break
+      case 'external':
+        filtered = initialInstructors.filter((i) => i.instructorType === 'EXTERNAL')
+        break
+    }
+    setFilteredInstructors(filtered)
+  }, [initialInstructors, activeTab])
 
   // Form modal state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
@@ -196,9 +202,39 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
   const applyFilters = (
     query: string,
     filters: Record<string, string[]>,
-    sort: { key: string; direction: 'asc' | 'desc' } | null = currentSort
+    sort: { key: string; direction: 'asc' | 'desc' } | null = currentSort,
+    tab: 'active' | 'inactive' | 'terminated' | 'external' = activeTab
   ) => {
     let result = instructors
+
+    // 탭 기반 필터링
+    switch (tab) {
+      case 'active':
+        // 활동중 탭: 활동중, 승인대기, 휴직 상태의 내부 강사
+        result = result.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          ['ACTIVE', 'PENDING', 'ON_LEAVE'].includes(i.status)
+        )
+        break
+      case 'inactive':
+        // 휴면 탭: 휴면 상태의 내부 강사
+        result = result.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          i.status === 'INACTIVE'
+        )
+        break
+      case 'terminated':
+        // 퇴사 탭: 퇴사/거절 상태의 내부 강사
+        result = result.filter((i) =>
+          (i.instructorType !== 'EXTERNAL') &&
+          ['TERMINATED', 'REJECTED'].includes(i.status)
+        )
+        break
+      case 'external':
+        // 외부 강사 탭
+        result = result.filter((i) => i.instructorType === 'EXTERNAL')
+        break
+    }
 
     if (query) {
       const lowerQuery = query.toLowerCase()
@@ -223,9 +259,10 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       result = result.filter((i) => filters.rangeKm.includes(i.rangeKm))
     }
 
-    if (filters.instructorType?.length > 0) {
-      result = result.filter((i) => filters.instructorType.includes(i.instructorType || 'INTERNAL'))
-    }
+    // instructorType 필터는 탭에서 처리하므로 제거
+    // if (filters.instructorType?.length > 0) {
+    //   result = result.filter((i) => filters.instructorType.includes(i.instructorType || 'INTERNAL'))
+    // }
 
     // 정렬 적용
     if (sort) {
@@ -241,7 +278,32 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
       })
     }
 
-    setFilteredInstructors(result)
+    startTransition(() => {
+      setFilteredInstructors(result)
+    })
+  }
+
+  // 탭 변경 핸들러
+  const handleTabChange = (tab: 'active' | 'inactive' | 'terminated' | 'external') => {
+    setActiveTab(tab)
+    applyFilters(searchQuery, activeFilters, currentSort, tab)
+  }
+
+  // 탭별 카운트 계산
+  const tabCounts = {
+    active: instructors.filter((i) =>
+      (i.instructorType !== 'EXTERNAL') &&
+      ['ACTIVE', 'PENDING', 'ON_LEAVE'].includes(i.status)
+    ).length,
+    inactive: instructors.filter((i) =>
+      (i.instructorType !== 'EXTERNAL') &&
+      i.status === 'INACTIVE'
+    ).length,
+    terminated: instructors.filter((i) =>
+      (i.instructorType !== 'EXTERNAL') &&
+      ['TERMINATED', 'REJECTED'].includes(i.status)
+    ).length,
+    external: instructors.filter((i) => i.instructorType === 'EXTERNAL').length,
   }
 
   const handleSearch = (query: string) => {
@@ -586,6 +648,72 @@ export default function InstructorList({ initialInstructors }: InstructorListPro
             강사 등록
           </button>
         </div>
+      </div>
+
+      {/* 강사 분류 탭 */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <button
+            onClick={() => handleTabChange('active')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+              activeTab === 'active'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            활동중
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+              activeTab === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tabCounts.active}
+            </span>
+          </button>
+          <button
+            onClick={() => handleTabChange('inactive')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+              activeTab === 'inactive'
+                ? 'border-yellow-500 text-yellow-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            휴면
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+              activeTab === 'inactive' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tabCounts.inactive}
+            </span>
+          </button>
+          <button
+            onClick={() => handleTabChange('terminated')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+              activeTab === 'terminated'
+                ? 'border-red-500 text-red-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            퇴사
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+              activeTab === 'terminated' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tabCounts.terminated}
+            </span>
+          </button>
+          <button
+            onClick={() => handleTabChange('external')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+              activeTab === 'external'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            외부 강사
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+              activeTab === 'external' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tabCounts.external}
+            </span>
+          </button>
+        </nav>
       </div>
 
       <ResponsiveList

@@ -44,9 +44,14 @@ const schoolTypes = {
   INSTITUTION: '기관',
 }
 
+// 지역 목록 (탭 필터용)
+const regions = ['전체', '영주', '안동', '봉화', '예천', '문경', '기타']
+
 export default function SchoolList({ initialSchools }: { initialSchools: School[] }) {
   const router = useRouter()
   const [schools, setSchools] = useState(initialSchools)
+  const [filteredSchools, setFilteredSchools] = useState(initialSchools)
+  const [activeRegion, setActiveRegion] = useState('전체')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // useTransition for non-blocking UI updates
@@ -57,6 +62,48 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
   useEffect(() => {
     setSchools(initialSchools)
   }, [initialSchools])
+
+  // 지역별 필터링
+  useEffect(() => {
+    startTransition(() => {
+      if (activeRegion === '전체') {
+        setFilteredSchools(schools)
+      } else if (activeRegion === '기타') {
+        // 주요 지역에 해당하지 않는 학교
+        const mainRegions = ['영주', '안동', '봉화', '예천', '문경']
+        setFilteredSchools(
+          schools.filter((school) =>
+            !mainRegions.some((r) => school.region.includes(r))
+          )
+        )
+      } else {
+        setFilteredSchools(
+          schools.filter((school) => school.region.includes(activeRegion))
+        )
+      }
+    })
+  }, [activeRegion, schools])
+
+  // 지역별 카운트 계산
+  const regionCounts = {
+    전체: schools.length,
+    영주: schools.filter((s) => s.region.includes('영주')).length,
+    안동: schools.filter((s) => s.region.includes('안동')).length,
+    봉화: schools.filter((s) => s.region.includes('봉화')).length,
+    예천: schools.filter((s) => s.region.includes('예천')).length,
+    문경: schools.filter((s) => s.region.includes('문경')).length,
+    기타: schools.filter((s) => {
+      const mainRegions = ['영주', '안동', '봉화', '예천', '문경']
+      return !mainRegions.some((r) => s.region.includes(r))
+    }).length,
+  }
+
+  // 탭 변경 핸들러
+  const handleRegionChange = useCallback((region: string) => {
+    startTransition(() => {
+      setActiveRegion(region)
+    })
+  }, [])
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -347,16 +394,51 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
         </button>
       </div>
 
+      {/* 지역별 탭 필터 */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="지역별 필터">
+          {regions.map((region) => {
+            const count = regionCounts[region as keyof typeof regionCounts]
+            const isActive = activeRegion === region
+            return (
+              <button
+                key={region}
+                onClick={() => handleRegionChange(region)}
+                disabled={isPending}
+                className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                } ${isPending ? 'opacity-50' : ''}`}
+              >
+                {region}
+                <span
+                  className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+
       <ResponsiveList
         mobileView={
           <div className="space-y-4">
-            {schools.length === 0 ? (
+            {filteredSchools.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 학교가 없습니다</h3>
+                <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                  {activeRegion === '전체' ? '등록된 학교가 없습니다' : `${activeRegion} 지역에 등록된 학교가 없습니다`}
+                </h3>
               </div>
             ) : (
-              schools.map((school) => (
+              filteredSchools.map((school) => (
                 <SchoolCard
                   key={school.id}
                   school={school}
@@ -382,15 +464,17 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {schools.length === 0 ? (
+              {filteredSchools.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
                     <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900">등록된 학교가 없습니다</h3>
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                      {activeRegion === '전체' ? '등록된 학교가 없습니다' : `${activeRegion} 지역에 등록된 학교가 없습니다`}
+                    </h3>
                   </td>
                 </tr>
               ) : (
-                schools.map((school) => (
+                filteredSchools.map((school) => (
                   <tr key={school.id} className="hover:bg-gray-50">
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
                       {school.name}

@@ -12,9 +12,20 @@ async function getRequests() {
         program: true,
         quote: true,
         assignments: {
-          include: {
-            instructor: true,
-          },
+          select: {
+            id: true,
+            status: true,
+            scheduledDate: true,
+            scheduledTime: true,
+            distanceKm: true,
+            transportFee: true,
+            instructor: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+          }
         },
       },
       orderBy: {
@@ -137,6 +148,10 @@ interface Request {
   assignments: Array<{
     id: string
     status: string
+    scheduledDate?: string | null
+    scheduledTime?: string | null
+    distanceKm?: number | null
+    transportFee?: number | null
     instructor: {
       id: string
       name: string
