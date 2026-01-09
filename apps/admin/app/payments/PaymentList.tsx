@@ -372,7 +372,7 @@ export default function PaymentList({ initialPayments, summary }: PaymentListPro
           </div>
         }
       >
-        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+        <div className={`bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>

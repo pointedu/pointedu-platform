@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Application {
@@ -56,12 +56,15 @@ export default function ApplicationList({ initialApplications }: Props) {
   const [showModal, setShowModal] = useState<{ type: 'approve' | 'reject'; id: string } | null>(null)
   const [note, setNote] = useState('')
 
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+
   const filteredApplications = applications.filter(app => {
     if (filter === 'all') return true
     return app.status === filter
   })
 
-  const handleAction = async (id: string, action: 'approve' | 'reject') => {
+  const handleAction = useCallback(async (id: string, action: 'approve' | 'reject') => {
     setLoading(id)
     try {
       const res = await fetch(`/api/applications/${id}/${action}`, {
@@ -72,13 +75,16 @@ export default function ApplicationList({ initialApplications }: Props) {
 
       if (res.ok) {
         await res.json()
-        setApplications(apps =>
-          apps.map(app =>
-            app.id === id
-              ? { ...app, status: action === 'approve' ? 'APPROVED' : 'REJECTED', reviewedAt: new Date().toISOString(), reviewNote: note }
-              : app
+        // Optimistic UI update with startTransition
+        startTransition(() => {
+          setApplications(apps =>
+            apps.map(app =>
+              app.id === id
+                ? { ...app, status: action === 'approve' ? 'APPROVED' : 'REJECTED', reviewedAt: new Date().toISOString(), reviewNote: note }
+                : app
+            )
           )
-        )
+        })
         setShowModal(null)
         setNote('')
         router.refresh()
@@ -91,7 +97,7 @@ export default function ApplicationList({ initialApplications }: Props) {
     } finally {
       setLoading(null)
     }
-  }
+  }, [note, router])
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
@@ -126,7 +132,7 @@ export default function ApplicationList({ initialApplications }: Props) {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg bg-white shadow">
+      <div className={`overflow-hidden rounded-lg bg-white shadow ${isPending ? 'opacity-70' : ''}`}>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

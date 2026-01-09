@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import FormModal from '../../components/FormModal'
 import {
@@ -81,6 +81,10 @@ export default function ResourceList({ initialResources, instructors }: Resource
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedInstructors, setSelectedInstructors] = useState<string[]>([])
+
+  // useTransition for non-blocking UI updates
+  const [isPending, startTransition] = useTransition()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -186,18 +190,23 @@ export default function ResourceList({ initialResources, instructors }: Resource
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
+    setActionLoading(id)
     try {
       const res = await fetch(`/api/resources/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        router.refresh()
+        startTransition(() => {
+          router.refresh()
+        })
       }
     } catch (error) {
       console.error('Failed to delete resource:', error)
+    } finally {
+      setActionLoading(null)
     }
-  }
+  }, [router])
 
   const handleAccessUpdate = async () => {
     if (!selectedResource) return
@@ -251,7 +260,7 @@ export default function ResourceList({ initialResources, instructors }: Resource
           <p className="mt-4 text-gray-500">등록된 자료가 없습니다.</p>
         </div>
       ) : (
-        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+        <div className={`bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
@@ -353,10 +362,15 @@ export default function ResourceList({ initialResources, instructors }: Resource
                       </button>
                       <button
                         onClick={() => handleDelete(resource.id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={actionLoading === resource.id || isPending}
+                        className={`text-red-600 hover:text-red-900 ${actionLoading === resource.id ? 'opacity-50 cursor-wait' : ''}`}
                         title="삭제"
                       >
-                        <TrashIcon className="h-4 w-4 inline" />
+                        {actionLoading === resource.id ? (
+                          <div className="h-4 w-4 inline-block animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                        ) : (
+                          <TrashIcon className="h-4 w-4 inline" />
+                        )}
                       </button>
                     </td>
                   </tr>

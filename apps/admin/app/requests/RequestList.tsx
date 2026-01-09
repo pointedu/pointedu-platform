@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ClockIcon,
@@ -152,7 +152,6 @@ export default function RequestList({ initialRequests, availableInstructors, sch
 
   // useTransition for non-blocking UI updates
   const [isPending, startTransition] = useTransition()
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // initialRequests가 변경되면 상태 업데이트
   useEffect(() => {
@@ -242,7 +241,9 @@ export default function RequestList({ initialRequests, availableInstructors, sch
       })
     }
 
-    setFilteredRequests(result)
+    startTransition(() => {
+      setFilteredRequests(result)
+    })
   }
 
   const handleSearch = (query: string) => {
@@ -525,7 +526,7 @@ export default function RequestList({ initialRequests, availableInstructors, sch
           </div>
         }
       >
-        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+        <div className={`bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden ${isPending ? 'opacity-70' : ''}`}>
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
