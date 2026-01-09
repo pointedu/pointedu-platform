@@ -310,7 +310,8 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          {/* 학교명, 유형 - 모바일: 1열, 데스크탑: 2열 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">학교명 *</label>
               <input
@@ -318,7 +319,7 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
             <div>
@@ -326,7 +327,7 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               >
                 {Object.entries(schoolTypes).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -342,11 +343,12 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
               required
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* 지역, 전화번호 - 모바일: 1열, 데스크탑: 2열 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">지역 *</label>
               <input
@@ -355,47 +357,51 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
                 placeholder="예: 영주시"
                 value={formData.region}
                 onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">전화번호 *</label>
               <input
-                type="text"
+                type="tel"
                 required
                 value={formData.phoneNumber}
                 onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {/* 거리, 교통비, 학생수 - 모바일: 1열, 데스크탑: 3열 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">거리 (km)</label>
               <input
                 type="number"
+                inputMode="numeric"
                 value={formData.distanceKm}
                 onChange={(e) => setFormData({ ...formData, distanceKm: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">교통비 (원)</label>
               <input
                 type="number"
+                inputMode="numeric"
                 value={formData.transportFee}
                 onChange={(e) => setFormData({ ...formData, transportFee: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">전체 학생수</label>
               <input
                 type="number"
+                inputMode="numeric"
                 value={formData.totalStudents}
                 onChange={(e) => setFormData({ ...formData, totalStudents: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
               />
             </div>
           </div>
@@ -407,22 +413,23 @@ export default function SchoolList({ initialSchools }: { initialSchools: School[
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
               placeholder="학교 관련 특이사항, 담당자 정보 등을 입력하세요..."
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base sm:text-sm"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          {/* 버튼 - 모바일에서 전체 너비 */}
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              className="w-full sm:w-auto rounded-md bg-white px-4 py-3 sm:py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 active:bg-gray-100"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+              className="w-full sm:w-auto rounded-md bg-blue-600 px-4 py-3 sm:py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50"
             >
               {loading ? '저장 중...' : editingSchool ? '수정' : '등록'}
             </button>

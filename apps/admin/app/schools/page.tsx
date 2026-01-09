@@ -1,4 +1,4 @@
-export const revalidate = 300 // Revalidate every 5 minutes
+export const dynamic = 'force-dynamic' // 실시간 데이터 갱신
 
 import { prisma } from '@pointedu/database'
 import SchoolList from './SchoolList'
