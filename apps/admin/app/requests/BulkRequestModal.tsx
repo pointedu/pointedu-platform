@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, TrashIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, DocumentDuplicateIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentIcon } from '@heroicons/react/24/outline'
 import FormModal from '../../components/FormModal'
+import { parseExcelFile, downloadExcelTemplate, requestExcelTemplateConfig } from '../../lib/excel'
 
 interface School {
   id: string
@@ -59,6 +60,14 @@ export default function BulkRequestModal({
   const [items, setItems] = useState<BulkRequestItem[]>([
     createNewItem(),
   ])
+
+  // 탭 상태 (manual: 수동 입력, excel: 엑셀 업로드)
+  const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual')
+
+  // 엑셀 업로드 관련 상태
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [excelData, setExcelData] = useState<Record<string, unknown>[]>([])
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   function createNewItem(): BulkRequestItem {
     return {
@@ -148,6 +157,172 @@ export default function BulkRequestModal({
     setSchoolId('')
     setScheduledDate('')
     setItems([createNewItem()])
+    setExcelData([])
+    setUploadError(null)
+    setActiveTab('manual')
+  }
+
+  // 엑셀 템플릿 다운로드
+  const handleDownloadTemplate = () => {
+    downloadExcelTemplate('수업요청', requestExcelTemplateConfig, '수업요청')
+  }
+
+  // 엑셀 파일 업로드 처리
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadError(null)
+
+    try {
+      const data = await parseExcelFile(file)
+      if (data.length === 0) {
+        setUploadError('엑셀 파일에 데이터가 없습니다.')
+        return
+      }
+      setExcelData(data)
+    } catch (error) {
+      console.error('Excel parse error:', error)
+      setUploadError('엑셀 파일을 읽는 중 오류가 발생했습니다.')
+    }
+
+    // 파일 입력 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // 학교명으로 학교 ID 찾기
+  const findSchoolByName = (name: string): School | undefined => {
+    const normalized = name.trim()
+    return schools.find(
+      (s) => s.name === normalized || s.name.includes(normalized) || normalized.includes(s.name)
+    )
+  }
+
+  // 프로그램명으로 프로그램 ID 찾기
+  const findProgramByName = (name: string): Program | undefined => {
+    const normalized = name.trim()
+    return programs.find(
+      (p) => p.name === normalized || p.name.includes(normalized) || normalized.includes(p.name)
+    )
+  }
+
+  // 엑셀 데이터 제출
+  const handleExcelSubmit = async () => {
+    if (excelData.length === 0) {
+      setUploadError('업로드된 데이터가 없습니다.')
+      return
+    }
+
+    setLoading(true)
+    setUploadError(null)
+
+    try {
+      // 학교별로 그룹핑
+      const groupedBySchool: Record<string, { school: School; items: BulkRequestItem[] }> = {}
+
+      for (const row of excelData) {
+        const schoolName = String(row['학교명'] || row['schoolName'] || '').trim()
+        const programName = String(row['프로그램명'] || row['programName'] || '').trim()
+
+        if (!schoolName) continue
+
+        const school = findSchoolByName(schoolName)
+        if (!school) {
+          setUploadError(`학교를 찾을 수 없습니다: ${schoolName}`)
+          setLoading(false)
+          return
+        }
+
+        const program = programName ? findProgramByName(programName) : undefined
+
+        const item: BulkRequestItem = {
+          id: Math.random().toString(36).substr(2, 9),
+          programId: program?.id || '',
+          customProgram: program ? '' : programName,
+          instructorId: '',
+          sessions: parseInt(String(row['차시'] || row['sessions'] || '2')) || 2,
+          studentCount: parseInt(String(row['학생수'] || row['studentCount'] || '25')) || 25,
+          targetGrade: String(row['대상학년'] || row['targetGrade'] || ''),
+          startTime: '09:00',
+          endTime: '10:30',
+          note: String(row['요청사항'] || row['requirements'] || ''),
+        }
+
+        if (!groupedBySchool[school.id]) {
+          groupedBySchool[school.id] = { school, items: [] }
+        }
+        groupedBySchool[school.id].items.push(item)
+      }
+
+      let totalCreated = 0
+
+      // 학교별로 요청 생성
+      for (const [schoolIdKey, group] of Object.entries(groupedBySchool)) {
+        // 희망날짜 처리
+        const firstRow = excelData.find((r) => {
+          const name = String(r['학교명'] || r['schoolName'] || '').trim()
+          return findSchoolByName(name)?.id === schoolIdKey
+        })
+
+        let dateStr = ''
+        if (firstRow) {
+          const rawDate = firstRow['희망날짜'] || firstRow['desiredDate']
+          if (rawDate) {
+            // 엑셀 날짜 형식 처리
+            if (typeof rawDate === 'number') {
+              // 엑셀 serial date
+              const date = new Date((rawDate - 25569) * 86400 * 1000)
+              dateStr = date.toISOString().split('T')[0]
+            } else {
+              dateStr = String(rawDate).split('T')[0]
+            }
+          }
+        }
+
+        if (!dateStr) {
+          dateStr = new Date().toISOString().split('T')[0]
+        }
+
+        const res = await fetch('/api/requests/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            schoolId: schoolIdKey,
+            scheduledDate: dateStr,
+            items: group.items.map((item) => ({
+              programId: item.programId || null,
+              customProgram: item.customProgram || null,
+              instructorId: item.instructorId || null,
+              sessions: item.sessions,
+              studentCount: item.studentCount,
+              targetGrade: item.targetGrade,
+              scheduledTime: `${item.startTime}~${item.endTime}`,
+              note: item.note,
+            })),
+          }),
+        })
+
+        if (res.ok) {
+          const result = await res.json()
+          totalCreated += result.count
+        } else {
+          const error = await res.json()
+          throw new Error(error.error || '등록 중 오류가 발생했습니다.')
+        }
+      }
+
+      alert(`${totalCreated}개의 요청이 등록되었습니다.`)
+      onClose()
+      resetForm()
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to create requests from excel:', error)
+      setUploadError(error instanceof Error ? error.message : '등록 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // 시간 옵션 생성 (08:00 ~ 17:00)
@@ -169,10 +344,154 @@ export default function BulkRequestModal({
       title="대량 수업 요청 등록"
       size="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 공통 정보 */}
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-3">공통 정보</h3>
+      {/* 탭 선택 */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            type="button"
+            onClick={() => setActiveTab('manual')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'manual'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            수동 입력
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('excel')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'excel'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            엑셀 업로드
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === 'excel' ? (
+        /* 엑셀 업로드 탭 */
+        <div className="space-y-6">
+          {/* 템플릿 다운로드 */}
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">1. 엑셀 양식 다운로드</h3>
+            <p className="text-sm text-blue-700 mb-3">
+              아래 버튼을 클릭하여 엑셀 양식을 다운로드한 후, 데이터를 입력하세요.
+            </p>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              엑셀 양식 다운로드
+            </button>
+          </div>
+
+          {/* 파일 업로드 */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-2">2. 엑셀 파일 업로드</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              작성한 엑셀 파일을 업로드하세요. (학교명은 등록된 학교와 일치해야 합니다)
+            </p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              파일 선택
+            </button>
+          </div>
+
+          {/* 에러 메시지 */}
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-700">{uploadError}</p>
+            </div>
+          )}
+
+          {/* 업로드된 데이터 미리보기 */}
+          {excelData.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <DocumentIcon className="h-5 w-5" />
+                  업로드된 데이터 ({excelData.length}건)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setExcelData([])}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  삭제
+                </button>
+              </div>
+              <div className="max-h-60 overflow-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">학교명</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">프로그램</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">차시</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">학생수</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">희망날짜</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {excelData.map((row, idx) => (
+                      <tr key={idx}>
+                        <td className="px-3 py-2">{String(row['학교명'] || row['schoolName'] || '')}</td>
+                        <td className="px-3 py-2">{String(row['프로그램명'] || row['programName'] || '')}</td>
+                        <td className="px-3 py-2">{String(row['차시'] || row['sessions'] || '')}</td>
+                        <td className="px-3 py-2">{String(row['학생수'] || row['studentCount'] || '')}</td>
+                        <td className="px-3 py-2">{String(row['희망날짜'] || row['desiredDate'] || '')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 버튼 */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                resetForm()
+              }}
+              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleExcelSubmit}
+              disabled={loading || excelData.length === 0}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+            >
+              {loading ? '등록 중...' : `${excelData.length}개 요청 등록`}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* 수동 입력 탭 */
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 공통 정보 */}
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-3">공통 정보</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -434,27 +753,28 @@ export default function BulkRequestModal({
           </div>
         </div>
 
-        {/* 버튼 */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <button
-            type="button"
-            onClick={() => {
-              onClose()
-              resetForm()
-            }}
-            className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            disabled={loading || !schoolId || !scheduledDate || items.length === 0}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
-          >
-            {loading ? '등록 중...' : `${items.length}개 요청 등록`}
-          </button>
-        </div>
-      </form>
+          {/* 버튼 */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                resetForm()
+              }}
+              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !schoolId || !scheduledDate || items.length === 0}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+            >
+              {loading ? '등록 중...' : `${items.length}개 요청 등록`}
+            </button>
+          </div>
+        </form>
+      )}
     </FormModal>
   )
 }
