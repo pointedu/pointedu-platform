@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   BuildingOffice2Icon,
   MapPinIcon,
@@ -33,7 +34,7 @@ const schoolTypes: Record<string, string> = {
   ALTERNATIVE: '대안학교',
 }
 
-export default function SchoolCard({ school, onEdit, onDelete }: SchoolCardProps) {
+function SchoolCard({ school, onEdit, onDelete }: SchoolCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
       <div className="flex items-start justify-between">
@@ -90,3 +91,6 @@ export default function SchoolCard({ school, onEdit, onDelete }: SchoolCardProps
     </div>
   )
 }
+
+// React.memo로 불필요한 리렌더링 방지
+export default memo(SchoolCard)

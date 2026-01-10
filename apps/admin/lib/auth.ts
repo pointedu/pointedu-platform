@@ -82,5 +82,10 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || 'pointedu-admin-secret-2025',
+  secret: process.env.NEXTAUTH_SECRET,
+}
+
+// Validate NEXTAUTH_SECRET at module load time
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn('⚠️ NEXTAUTH_SECRET 환경변수가 설정되지 않았습니다. 보안을 위해 반드시 설정해주세요.')
 }

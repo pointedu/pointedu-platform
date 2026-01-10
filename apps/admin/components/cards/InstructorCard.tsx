@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   UserIcon,
   PhoneIcon,
@@ -49,7 +50,7 @@ const statusLabels: Record<string, string> = {
   REJECTED: '거절됨',
 }
 
-export default function InstructorCard({
+function InstructorCard({
   instructor,
   onSelect,
   onEdit,
@@ -172,3 +173,6 @@ export default function InstructorCard({
     </div>
   )
 }
+
+// React.memo로 불필요한 리렌더링 방지
+export default memo(InstructorCard)

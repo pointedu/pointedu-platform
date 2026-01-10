@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   BuildingOffice2Icon,
   CalendarIcon,
@@ -61,7 +62,7 @@ const statusLabels: Record<string, string> = {
   CANCELLED: '취소됨',
 }
 
-export default function RequestCard({ request, onSelect, onAssign, onAutomate }: RequestCardProps) {
+function RequestCard({ request, onSelect, onAssign, onAutomate }: RequestCardProps) {
   const programName = request.program?.name || request.customProgram || '미정'
   const preferredDate = request.preferredDates?.[0] || '미정'
   const assignedInstructor = request.assignments?.[0]?.instructor?.name
@@ -157,3 +158,6 @@ export default function RequestCard({ request, onSelect, onAssign, onAutomate }:
     </div>
   )
 }
+
+// React.memo로 불필요한 리렌더링 방지
+export default memo(RequestCard)

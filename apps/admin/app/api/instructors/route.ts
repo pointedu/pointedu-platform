@@ -4,6 +4,19 @@ import { prisma } from '@pointedu/database'
 import { withAuth, withAdminAuth, successResponse, errorResponse } from '../../../lib/api-auth'
 import { instructorCreateSchema, validateBody } from '../../../lib/validations'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
+
+// 안전한 임시 비밀번호 생성 (12자리, 영대소문자+숫자+특수문자)
+function generateSecurePassword(): string {
+  const length = 12
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
+  const randomBytes = crypto.randomBytes(length)
+  let password = ''
+  for (let i = 0; i < length; i++) {
+    password += charset[randomBytes[i] % charset.length]
+  }
+  return password
+}
 
 // GET - 강사 목록 조회 (인증 필요)
 export const GET = withAuth(async () => {
@@ -74,8 +87,11 @@ export const POST = withAdminAuth(async (request) => {
       finalBankAccount = parts.join(' ')
     }
 
+    // 안전한 임시 비밀번호 생성
+    const tempPassword = generateSecurePassword()
+    const hashedPassword = await bcrypt.hash(tempPassword, 10)
+
     // Create user first
-    const hashedPassword = await bcrypt.hash('instructor2025', 10)
     const user = await prisma.user.create({
       data: {
         email: email || `instructor_${Date.now()}@pointedu.co.kr`,
@@ -107,12 +123,14 @@ export const POST = withAdminAuth(async (request) => {
     })
 
     // 프론트엔드 호환을 위해 bankAccount를 분리해서 응답
+    // 임시 비밀번호도 함께 반환 (관리자가 강사에게 전달)
     const bankParts = (instructor.bankAccount || '').split(' ')
     return successResponse({
       ...instructor,
       bankName: bankParts[0] || '',
       accountNumber: bankParts[1] || '',
       accountHolder: bankParts[2] || '',
+      tempPassword, // 강사에게 전달할 임시 비밀번호
     }, 201)
   } catch (error) {
     console.error('Failed to create instructor:', error)

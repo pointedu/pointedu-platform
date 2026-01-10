@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   CalendarIcon,
   CheckCircleIcon,
@@ -84,7 +85,7 @@ function formatMoney(value: number): string {
   return Number(value).toLocaleString('ko-KR') + '원'
 }
 
-export default function PaymentCard({
+function PaymentCard({
   payment,
   onSelect,
   onStatusChange,
@@ -186,3 +187,6 @@ export default function PaymentCard({
     </div>
   )
 }
+
+// React.memo로 불필요한 리렌더링 방지
+export default memo(PaymentCard)
